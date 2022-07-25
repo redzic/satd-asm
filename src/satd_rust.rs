@@ -86,12 +86,18 @@ unsafe fn hadamard4x4(data: &mut [i32]) {
 //     satd4x4(&mut tmp)
 // }
 
-pub fn satd4x4_rust(data: &mut [i32; 16]) -> u64 {
-    unsafe {
-        hadamard4x4(data);
+pub fn satd4x4_rust(src: &[u16; 16], dst: &[u16; 16]) -> u64 {
+    let mut buf = [0; 16];
+
+    for i in 0..16 {
+        buf[i] = src[i] as i32 - dst[i] as i32;
     }
 
-    data.iter().map(|&x| x.unsigned_abs() as u64).sum()
+    unsafe {
+        hadamard4x4(&mut buf);
+    }
+
+    buf.iter().map(|&x| x.unsigned_abs() as u64).sum()
 }
 
 // SAFETY: The length of data must be 64.

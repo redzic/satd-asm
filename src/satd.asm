@@ -1,12 +1,7 @@
 %include "config.asm"
 %include "x86inc.asm"
 
-SECTION_RODATA 32
-
-pw_1:   times 8 dw 1
-
 SECTION .text
-
 
 ; so for 10-bit, this is fine...
 ; just not for 12-bit. for that we need 32-bit precision
@@ -15,22 +10,25 @@ SECTION .text
 
 ; <num args>, <GPRs>, <num X/Y/ZMM regs used>
 
-INIT_YMM avx2
-cglobal satd_4x4_10bpc, 2, 3, 4, src, src_stride, \
-                                 src_stride3
-    ; row size in bytes
-    ; 4 pixels * byte_per_pixel
-    ; = 8 for HBD
-    %define     ROW_SIZE 8
+; TODO rename src and dst
 
+INIT_YMM avx2
+cglobal satd_4x4_10bpc, 4, 6, 4, src, src_stride, dst, dst_stride, \
+                                 src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
+    lea         dst_stride3q, [3*dst_strideq]
 
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
     movq        xm0, [srcq + 0*src_strideq]
     movq        xm2, [srcq + 1*src_strideq]
     movq        xm1, [srcq + 2*src_strideq]
-    movq        xm3, [srcq + src_stride3q]
+    movq        xm3, [srcq + src_stride3q ]
+
+    psubw       xm0, [dstq + 0*dst_strideq]
+    psubw       xm2, [dstq + 1*dst_strideq]
+    psubw       xm1, [dstq + 2*dst_strideq]
+    psubw       xm3, [dstq + dst_stride3q ]
 
     ; pack rows next to each other
     ; store in m0
@@ -114,7 +112,7 @@ cglobal satd_4x4_10bpc, 2, 3, 4, src, src_stride, \
     SWAP 3, 0
 
     ; m1    [0+4][1+5][2+6][3+7] [8+12][9+13][10+14][11+15]
-    ; m3    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
+    ; m0    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
 
     ; interleave
     punpcklwd   xm0, xm1, xm3
@@ -143,9 +141,9 @@ cglobal satd_4x4_10bpc, 2, 3, 4, src, src_stride, \
     pabsw       xm0, xm0
     paddw       xm1, xm0
 
-    ; horizontal reduce
-    ; multiply by 1 and accumulate adjacent 16-bit pairs into 32-bit results
-    pmaddwd     xm1, [pw_1]
+    ; horizontally reduce coefficients
+    ; accumulate adjacent 16-bit pairs into 32-bit results
+    pmaddwd     xm1, [pw_1x8]
     ; reduce 32-bit results
     pshufd      xm0, xm1, q2323
     paddd       xm1, xm0
@@ -153,3 +151,6 @@ cglobal satd_4x4_10bpc, 2, 3, 4, src, src_stride, \
     paddd       xm1, xm0
     movd        eax, xm1
     RET
+
+align 16
+pw_1x8:   times 8 dw 1
