@@ -45,14 +45,19 @@ satd4x4_asm:
     ; TODO minimize these 3-operand instructions
 
     paddw       m1, m0, m2
-    psubw       m3, m0, m2
+    psubw       m0, m2
+
+    SWAP 0, 3
 
     ; m1    [0+4][1+5][2+6][3+7] [8+12][9+13][10+14][11+15]
     ; m3    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
 
     ; interleave
     punpcklwd   m0, m1, m3
-    punpckhwd   m2, m1, m3
+    punpckhwd   m1, m3
+
+    SWAP 2,1
+
 
     ; m0    [ 0+4][ 0-4][ 1+5][ 1-5] [2 + 6][2 - 6][3 + 7][3 - 7]
     ; m2    [8+12][8-12][9+13][9-13] [10+14][10-14][11+15][11-15]
