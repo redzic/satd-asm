@@ -129,10 +129,10 @@ satd4x4_asm:
     pabsw       m3, m3
     paddw       m1, m3
 
-    ; multiply by 1 and accumulate 32-bit pairs
+    ; horizontal reduce
+    ; multiply by 1 and accumulate adjacent 16-bit pairs into 32-bit results
     pmaddwd     m1, [pw_1]
-
-    ; horizontally reduce
+    ; reduce 32-bit results
     pshufd      m0, m1, q2323
     paddd       m1, m0
     pshufd      m0, m1, q1111
