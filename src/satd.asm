@@ -13,20 +13,24 @@ SECTION .text
 
 ; TODO Make this actually subtract differences from 2 planes
 
-; r0 = Pointer to src [u8; 16]
+; <num args>, <GPRs>, <num X/Y/ZMM regs used>
+
 INIT_YMM avx2
-cglobal satd_4x4_10bpc, 1, 1, 4, src
+cglobal satd_4x4_10bpc, 2, 3, 4, src, src_stride, \
+                                 src_stride3
     ; row size in bytes
     ; 4 pixels * byte_per_pixel
     ; = 8 for HBD
     %define     ROW_SIZE 8
 
+    lea         src_stride3q, [3*src_strideq]
+
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
-    movq        xm0, [srcq + 0*ROW_SIZE]
-    movq        xm2, [srcq + 1*ROW_SIZE]
-    movq        xm1, [srcq + 2*ROW_SIZE]
-    movq        xm3, [srcq + 3*ROW_SIZE]
+    movq        xm0, [srcq + 0*src_strideq]
+    movq        xm2, [srcq + 1*src_strideq]
+    movq        xm1, [srcq + 2*src_strideq]
+    movq        xm3, [srcq + src_stride3q]
 
     ; pack rows next to each other
     ; store in m0

@@ -5,7 +5,7 @@ use crate::satd_rust::satd4x4_rust;
 mod satd_rust;
 
 extern "C" {
-    fn rav1e_satd_4x4_10bpc_avx2(x: &[i16; 16]) -> u64;
+    fn rav1e_satd_4x4_10bpc_avx2(x: *const i16, stride: isize) -> u64;
 }
 
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
         z.fill_with(|| rng.gen_range(-1023..=1023));
         // z.fill_with(|| rng.gen_range(-4095..=4095));
 
-        let satd_asm = unsafe { rav1e_satd_4x4_10bpc_avx2(&z) };
+        let satd_asm = unsafe { rav1e_satd_4x4_10bpc_avx2(z.as_ptr(), 8) };
         let satd_rust = {
             // cast to 32-bit
             for i in 0..16 {
