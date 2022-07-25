@@ -19,20 +19,20 @@ SECTION .text
 ; TODO Make this actually subtract differences from 2 planes
 
 ; r0 = Pointer to src [u8; 16]
-INIT_XMM sse4
+INIT_YMM avx2
 satd4x4_asm:
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
-    movq        m0, [r0 + 0*ROW_SIZE]
-    movq        m2, [r0 + 1*ROW_SIZE]
-    movq        m1, [r0 + 2*ROW_SIZE]
-    movq        m3, [r0 + 3*ROW_SIZE]
+    movq        xm0, [r0 + 0*ROW_SIZE]
+    movq        xm2, [r0 + 1*ROW_SIZE]
+    movq        xm1, [r0 + 2*ROW_SIZE]
+    movq        xm3, [r0 + 3*ROW_SIZE]
 
     ; pack rows next to each other
     ; store in m0
-    punpcklqdq  m0, m1
+    punpcklqdq  xm0, xm1
     ; pack rows (64 bits) next to each other
-    punpcklqdq  m2, m3
+    punpcklqdq  xm2, xm3
 
     ; do vertical transform
 
@@ -42,8 +42,8 @@ satd4x4_asm:
     ; 0 1 2 3   8  9 10 11
     ; 4 5 6 7  12 13 14 15
 
-    paddw       m1, m0, m2
-    psubw       m0, m2
+    paddw       xm1, xm0, xm2
+    psubw       xm0, xm2
 
     SWAP 0, 3
 
@@ -51,8 +51,8 @@ satd4x4_asm:
     ; m3    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
 
     ; interleave
-    punpcklwd   m0, m1, m3
-    punpckhwd   m1, m3
+    punpcklwd   xm0, xm1, xm3
+    punpckhwd   xm1, xm3
 
     SWAP 2, 1
 
@@ -62,8 +62,8 @@ satd4x4_asm:
     ; we have the numbers needed for the 
 
     ; butterfly
-    paddw       m1, m0, m2
-    psubw       m0, m2
+    paddw       xm1, xm0, xm2
+    psubw       xm0, xm2
 
     SWAP 3, 0
 
@@ -75,8 +75,8 @@ satd4x4_asm:
     ; For the vertical transform, these are packed into a new column.
 
     ; pack together
-    punpckldq   m0, m1, m3
-    punpckhdq   m1, m3
+    punpckldq   xm0, xm1, xm3
+    punpckhdq   xm1, xm3
 
     SWAP 2, 1
 
@@ -104,8 +104,8 @@ satd4x4_asm:
 
     ; --- Horizontal transform ---
 
-    paddw       m1, m0, m2
-    psubw       m0, m2
+    paddw       xm1, xm0, xm2
+    psubw       xm0, xm2
 
     SWAP 3, 0
 
@@ -113,8 +113,8 @@ satd4x4_asm:
     ; m3    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
 
     ; interleave
-    punpcklwd   m0, m1, m3
-    punpckhwd   m1, m3
+    punpcklwd   xm0, xm1, xm3
+    punpckhwd   xm1, xm3
 
     SWAP 2, 1
 
@@ -124,8 +124,8 @@ satd4x4_asm:
     ; we have the numbers needed for the 
 
     ; butterfly
-    paddw       m1, m0, m2
-    psubw       m0, m2
+    paddw       xm1, xm0, xm2
+    psubw       xm0, xm2
 
     ; transform has all the same numbers, just in the wrong order
     ; but since we're doing an associative (?) reduction, the wrong
@@ -135,17 +135,17 @@ satd4x4_asm:
 
     ; sum absolute value of all numbers
 
-    pabsw       m1, m1
-    pabsw       m0, m0
-    paddw       m1, m0
+    pabsw       xm1, xm1
+    pabsw       xm0, xm0
+    paddw       xm1, xm0
 
     ; horizontal reduce
     ; multiply by 1 and accumulate adjacent 16-bit pairs into 32-bit results
-    pmaddwd     m1, [pw_1]
+    pmaddwd     xm1, [pw_1]
     ; reduce 32-bit results
-    pshufd      m0, m1, q2323
-    paddd       m1, m0
-    pshufd      m0, m1, q1111
-    paddd       m1, m0
-    movd        eax, m1
+    pshufd      xm0, xm1, q2323
+    paddd       xm1, xm0
+    pshufd      xm0, xm1, q1111
+    paddd       xm1, xm0
+    movd        eax, xm1
     ret
