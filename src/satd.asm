@@ -23,10 +23,10 @@ cglobal satd_4x4_10bpc, 1, 1, 4, src
 
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
-    movq        xm0, [r0 + 0*ROW_SIZE]
-    movq        xm2, [r0 + 1*ROW_SIZE]
-    movq        xm1, [r0 + 2*ROW_SIZE]
-    movq        xm3, [r0 + 3*ROW_SIZE]
+    movq        xm0, [srcq + 0*ROW_SIZE]
+    movq        xm2, [srcq + 1*ROW_SIZE]
+    movq        xm1, [srcq + 2*ROW_SIZE]
+    movq        xm3, [srcq + 3*ROW_SIZE]
 
     ; pack rows next to each other
     ; store in m0
