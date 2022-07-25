@@ -4,7 +4,15 @@
 SECTION .text
     GLOBAL satd4x4_asm
 
-%define ROW_SIZE 4
+; row size in bytes
+; 4 pixels * byte_per_pixel
+; = 8 for HBD
+%define ROW_SIZE 8
+
+; so for 10-bit, this is fine...
+; just not for 12-bit. for that we need 32-bit precision
+
+; TODO Make this actually subtract differences from 2 planes
 
 ; r0 = Pointer to src [u8; 16]
 ; r1 = Pointer to buffer of [u16; 8] (may not be used)
@@ -12,20 +20,16 @@ INIT_XMM sse4
 satd4x4_asm:
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
-    movd        m0, [r0 + 0*ROW_SIZE]
-    movd        m2, [r0 + 1*ROW_SIZE]
-    movd        m1, [r0 + 2*ROW_SIZE]
-    movd        m3, [r0 + 3*ROW_SIZE]
+    movq        m0, [r0 + 0*ROW_SIZE]
+    movq        m2, [r0 + 1*ROW_SIZE]
+    movq        m1, [r0 + 2*ROW_SIZE]
+    movq        m3, [r0 + 3*ROW_SIZE]
 
     ; pack rows next to each other
     ; store in m0
-    punpckldq   m0, m1
-    ; pack rows (32 bits) next to each other
-    punpckldq   m2, m3
-
-    ; zero-extend both sets of packed rows to 16-bits
-    pmovzxbw    m0, m0
-    pmovzxbw    m2, m2
+    punpcklqdq  m0, m1
+    ; pack rows (64 bits) next to each other
+    punpcklqdq  m2, m3
 
     ; do vertical transform
 
