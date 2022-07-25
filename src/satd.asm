@@ -12,9 +12,27 @@ SECTION .text
 
 ; TODO rename src and dst
 
+align 16
+pw_1x8:   times 8 dw 1
+
 INIT_YMM avx2
+cglobal satd_4x4_12bpc, 4, 6, 4, src, src_stride, dst, dst_stride, \
+                                 src_stride3, dst_stride3
+    RET
+
+
+%macro SATD_HBD 1
+%if %1 == "sse4"
+    INIT_XMM sse4
+cglobal satd_4x4_10bpc, 4, 6, 8, src, src_stride, dst, dst_stride, \
+                                 src_stride3, dst_stride3
+%elif %1 == "avx2"
+    INIT_YMM avx2
 cglobal satd_4x4_10bpc, 4, 6, 4, src, src_stride, dst, dst_stride, \
                                  src_stride3, dst_stride3
+%else
+    %error "Invalid or unsupported instruction set specified in macro argument"
+%endif
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
 
@@ -25,10 +43,22 @@ cglobal satd_4x4_10bpc, 4, 6, 4, src, src_stride, dst, dst_stride, \
     movq        xm1, [srcq + 2*src_strideq]
     movq        xm3, [srcq + src_stride3q ]
 
+%if %1 == "sse4"
+    movq        xm4, [dstq + 0*dst_strideq]
+    movq        xm6, [dstq + 1*dst_strideq]
+    movq        xm5, [dstq + 2*dst_strideq]
+    movq        xm7, [dstq + dst_stride3q ]
+
+    psubw       xm0, xm4
+    psubw       xm2, xm6
+    psubw       xm1, xm5
+    psubw       xm3, xm7
+%elif %1 == "avx2"
     psubw       xm0, [dstq + 0*dst_strideq]
     psubw       xm2, [dstq + 1*dst_strideq]
     psubw       xm1, [dstq + 2*dst_strideq]
     psubw       xm3, [dstq + dst_stride3q ]
+%endif
 
     ; pack rows next to each other
     ; store in m0
@@ -151,6 +181,7 @@ cglobal satd_4x4_10bpc, 4, 6, 4, src, src_stride, dst, dst_stride, \
     paddd       xm1, xm0
     movd        eax, xm1
     RET
+%endmacro
 
-align 16
-pw_1x8:   times 8 dw 1
+SATD_HBD "sse4"
+SATD_HBD "avx2"
