@@ -115,7 +115,7 @@ satd4x4_asm:
 
     ; butterfly
     paddw       m1, m0, m2
-    psubw       m3, m0, m2
+    psubw       m0, m2
 
     ; transform has all the same numbers, just in the wrong order
     ; but since we're doing an associative (?) reduction, the wrong
@@ -126,8 +126,8 @@ satd4x4_asm:
     ; sum absolute value of all numbers
 
     pabsw       m1, m1
-    pabsw       m3, m3
-    paddw       m1, m3
+    pabsw       m0, m0
+    paddw       m1, m0
 
     ; horizontal reduce
     ; multiply by 1 and accumulate adjacent 16-bit pairs into 32-bit results
