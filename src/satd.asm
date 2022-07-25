@@ -1,6 +1,10 @@
 %include "config.asm"
 %include "x86inc.asm"
 
+SECTION_RODATA 32
+
+pw_1:   times 8 dw 1
+
 SECTION .text
     GLOBAL satd4x4_asm
 
@@ -15,7 +19,6 @@ SECTION .text
 ; TODO Make this actually subtract differences from 2 planes
 
 ; r0 = Pointer to src [u8; 16]
-; r1 = Pointer to buffer of [u16; 8] (may not be used)
 INIT_XMM sse4
 satd4x4_asm:
     ; first row and third (4 bytes/row)
@@ -90,6 +93,9 @@ satd4x4_asm:
     ; our input is flipped, if we do the vertical transform again then
     ; it is equivalent to just doing the horizontal transform again
 
+    ; TODO test if precision up until here is good with 12-bit
+    ; maybe we could only cast to 32-bit when we do the second 1D transform
+
     ; --- Horizontal transform ---
 
     paddw       m1, m0, m2
@@ -115,8 +121,21 @@ satd4x4_asm:
     ; but since we're doing an associative (?) reduction, the wrong
     ; order does not affect the final result
 
-    ; dump registers
-    movu    [r1],        m1
-    movu    [r1+mmsize], m3
-    xor     eax, eax
+    ; --- 2D TRANSFORM DONE ---
+
+    ; sum absolute value of all numbers
+
+    pabsw       m1, m1
+    pabsw       m3, m3
+    paddw       m1, m3
+
+    ; multiply by 1 and accumulate 32-bit pairs
+    pmaddwd     m1, [pw_1]
+
+    ; horizontally reduce
+    pshufd      m0, m1, q2323
+    paddd       m1, m0
+    pshufd      m0, m1, q1111
+    paddd       m1, m0
+    movd        eax, m1
     ret
