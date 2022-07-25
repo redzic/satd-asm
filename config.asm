@@ -11,5 +11,5 @@
 
 %define STACK_ALIGNMENT 32
 
-%define private_prefix dav1d
+%define private_prefix rav1e
 

@@ -6,12 +6,7 @@ SECTION_RODATA 32
 pw_1:   times 8 dw 1
 
 SECTION .text
-    GLOBAL satd4x4_asm
 
-; row size in bytes
-; 4 pixels * byte_per_pixel
-; = 8 for HBD
-%define ROW_SIZE 8
 
 ; so for 10-bit, this is fine...
 ; just not for 12-bit. for that we need 32-bit precision
@@ -20,7 +15,12 @@ SECTION .text
 
 ; r0 = Pointer to src [u8; 16]
 INIT_YMM avx2
-satd4x4_asm:
+cglobal satd_4x4_10bpc, 1, 1, 4, src
+    ; row size in bytes
+    ; 4 pixels * byte_per_pixel
+    ; = 8 for HBD
+    %define     ROW_SIZE 8
+
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
     movq        xm0, [r0 + 0*ROW_SIZE]
@@ -148,4 +148,4 @@ satd4x4_asm:
     pshufd      xm0, xm1, q1111
     paddd       xm1, xm0
     movd        eax, xm1
-    ret
+    RET
