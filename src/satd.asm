@@ -16,7 +16,7 @@ align 16
 pw_1x8:   times 8 dw 1
 
 INIT_YMM avx2
-cglobal satd_4x4_12bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
+cglobal satd_4x4_12bpc, 4, 6, 8, src, src_stride, dst, dst_stride, \
                                  src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]

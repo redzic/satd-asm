@@ -18,7 +18,6 @@ extern "C" {
         src_stride: usize,
         dst: *const u16,
         dst_stride: usize,
-        buf: &mut [i32; 16],
     ) -> u64;
 }
 
@@ -32,7 +31,7 @@ fn main() {
     }
 
     unsafe {
-        let satd = rav1e_satd_4x4_12bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8, &mut buf);
+        let satd = rav1e_satd_4x4_12bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8);
         // let satd = rav1e_satd_4x4_10bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8);
 
         let satd_rust = satd4x4_rust(&src, &dst);
