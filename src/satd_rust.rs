@@ -70,7 +70,7 @@ fn hadamard2d<const LEN: usize, const W: usize, const H: usize>(data: &mut [i32;
     } else {
         hadamard8_1d::<LEN, H, W, 1>
     };
-    // horz_func(data);
+    horz_func(data);
 }
 
 // SAFETY: The length of data must be 16.

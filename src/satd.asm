@@ -70,15 +70,12 @@ cglobal satd_4x4_12bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     ; m1    [0+4][1+5][2+6][3+7] [8+12][9+13][10+14][11+15]
     ; m3    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
 
-    ; ; interleave
+    ; interleave
+    ; TODO see if there's a way to do the entire shuffle in less steps
     punpckldq   m0, m1, m3
     punpckhdq   m2, m1, m3
-    ; TODO see if there's a way to do the entire shuffle in less steps
     vperm2i128  m1, m0, m2, 0x20
     vperm2i128  m3, m0, m2, 0x31
-
-    ; movu    [bufq], m1
-    ; movu    [bufq+mmsize], m3
 
     SWAP    0, 1, 2, 3
 
@@ -96,9 +93,11 @@ cglobal satd_4x4_12bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     ; For the vertical transform, these are packed into a new column.
 
     ; pack together
-    punpcklqdq   m0, m1, m3
-    punpckhqdq   m2, m1, m3
-
+    punpcklqdq      m0, m1, m3
+    punpckhqdq      m2, m1, m3
+    vperm2i128      m1, m0, m2, 0x20
+    vperm2i128      m3, m0, m2, 0x31
+    
     ;               p0          p1        p2         p3
     ; m0    [0+4+ 8+12][0-4+ 8-12][0+4- 8-12][0-4- 8+12] [1+5+ 9+13][1-5+ 9-13][1+5- 9-13][1-5- 9+13] 
     ; m2    [2+6+10+14][2-6+10-14][2+6-10-14][2-6-10+14] [3+7+11+15][3-7+11-15][3+7-11-15][3-7-11+15]
@@ -115,11 +114,39 @@ cglobal satd_4x4_12bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     ; | p3 | q3 | r3 | s3 |
     ; +----+----+----+----+
 
-    ; our input is flipped, if we do the vertical transform again then
-    ; it is equivalent to just doing the horizontal transform again
+    SWAP 0, 1, 2, 3
 
-    ; (we only did one vertical transform so far)
+    ; ---- END OF VERTICAL TRANSFORM
 
+    paddd       m1, m0, m2
+    psubd       m3, m0, m2
+
+    ; m1    [0+4][1+5][2+6][3+7] [8+12][9+13][10+14][11+15]
+    ; m3    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
+
+    ; interleave
+    ; TODO see if there's a way to do the entire shuffle in less steps
+    punpckldq   m0, m1, m3
+    punpckhdq   m2, m1, m3
+    vperm2i128  m1, m0, m2, 0x20
+    vperm2i128  m3, m0, m2, 0x31
+
+    SWAP    0, 1, 2, 3
+
+    ; m0    [ 0+4][ 0-4][ 1+5][ 1-5] [2 + 6][2 - 6][3 + 7][3 - 7]
+    ; m2    [8+12][8-12][9+13][9-13] [10+14][10-14][11+15][11-15]
+
+    paddd       m1, m0, m2
+    psubd       m3, m0, m2
+
+    ; m1    [0+4+8+12][0-4+8-12][1+5+9+13][1-5+9-13] [2+6+10+14][2-6+10-14][3+7+11+15][3-7+11-15]
+    ; m3    [0+4-8-12][0-4-8+12][1+5-9-13][1-5-9+13] [2+6-10-14][2-6-10+14][3+7-11-15][3-7-11+15]
+
+    ; for one row:
+    ; [0+1+2+3][0-1+2-3][0+1-2-3][0-1-2+3]
+    ; For the vertical transform, these are packed into a new column.
+
+    SWAP 0, 1, 2, 3
 
     ; sum up 32-bit values
     pabsd       m0, m0
