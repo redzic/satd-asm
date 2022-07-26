@@ -70,11 +70,13 @@ fn hadamard2d<const LEN: usize, const W: usize, const H: usize>(data: &mut [i32;
     } else {
         hadamard8_1d::<LEN, H, W, 1>
     };
-    horz_func(data);
+    // horz_func(data);
 }
 
 // SAFETY: The length of data must be 16.
-unsafe fn hadamard4x4(data: &mut [i32]) {
+pub unsafe fn hadamard4x4(data: &mut [i32]) {
+    assert!(data.len() == 16);
+
     hadamard2d::<{ 4 * 4 }, 4, 4>(&mut *(data.as_mut_ptr() as *mut [i32; 16]));
 }
 
@@ -100,8 +102,59 @@ pub fn satd4x4_rust(src: &[u16; 16], dst: &[u16; 16]) -> u64 {
     buf.iter().map(|&x| x.unsigned_abs() as u64).sum()
 }
 
+pub unsafe fn satd<const LEN: usize, const W: usize, const H: usize>(data: &mut [i32; LEN]) -> u64 {
+    assert!(LEN == W * H);
+    assert!(W >= 4 && W.is_power_of_two());
+    assert!(H >= 4 && H.is_power_of_two());
+
+    let transform_size = W.min(H).min(8);
+    let transform = match transform_size {
+        4 => hadamard4x4,
+        8 => hadamard8x8,
+        _ => unreachable!(),
+    };
+
+    let mut buf_4x4 = [0; 16];
+    let mut buf_8x8 = [0; 64];
+
+    let mut satd = 0;
+
+    // LEN = W * H
+
+    let stride = LEN / H;
+
+    let buf = if transform_size == 4 {
+        &mut buf_4x4[..]
+    } else {
+        &mut buf_8x8[..]
+    };
+
+    // loop over blocks
+    // LEN / W = H
+    for y in 0..(LEN / W) / transform_size {
+        // LEN / H = W
+        for x in 0..(LEN / H) / transform_size {
+            // copy block into buffer
+            for i in 0..transform_size {
+                // copy row
+                buf[i * stride..][..transform_size].copy_from_slice(
+                    &data[y * stride * transform_size + x * transform_size + i * stride..]
+                        [..transform_size],
+                );
+            }
+            transform(buf);
+
+            satd += buf.iter().map(|x| x.unsigned_abs() as u64).sum::<u64>();
+        }
+    }
+
+    satd
+}
+
 // SAFETY: The length of data must be 64.
 unsafe fn hadamard8x8(data: &mut [i32]) {
+    assert!(data.len() == 64);
+
     hadamard2d::<{ 8 * 8 }, 8, 8>(&mut *(data.as_mut_ptr() as *mut [i32; 64]));
 }
 
