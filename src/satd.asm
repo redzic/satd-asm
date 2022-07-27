@@ -163,7 +163,10 @@ SECTION .text
 ;
 ; Inputs:
 ; %1 = Element size in bits (16 or 32)
-; %2 = Size of register in bytes (16 or 32)
+; %2 = Size of input register in bytes (16 or 32)
+;      You can e.g. pass 16 for this argument if you
+;      only want to sum up the bottom 128-bits of a
+;      ymm register.
 ; %3 = Input register number
 ; %4 = Temporary register number
 ; %5 = Output register (e.g., eax)
