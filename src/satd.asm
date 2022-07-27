@@ -25,6 +25,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 
     cmp     bdmaxd, ((1 << 10) - 1)
     jne     .12bpc
+    ; else continue with 10-bit SATD
 
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
