@@ -12,12 +12,20 @@ SECTION .text
 
 ; TODO rename src and dst
 
+%define m(x) mangle(private_prefix %+ _ %+ x %+ SUFFIX)
+
 align 16
 pw_1x8:   times 8 dw 1
 
 INIT_YMM avx2
-cglobal satd_4x4_12bpc, 4, 6, 8, src, src_stride, dst, dst_stride, \
-                                 src_stride3, dst_stride3
+cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
+                               src_stride3, dst_stride3
+    cmp     bdmaxd, ((1 << 10) - 1)
+    je      m(satd_4x4_10bpc)
+
+    ; continue with 12-bit SATD
+    ; TODO swap order to continue with 10-bit SATD
+
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
 
@@ -43,13 +51,6 @@ cglobal satd_4x4_12bpc, 4, 6, 8, src, src_stride, dst, dst_stride, \
 
     ; [0, 1,  2,  3,  4,  5,  6,  7]
     ; [8, 9, 10, 11, 12, 13, 14, 15]
-
-    ; ; pack rows next to each other
-    ; vinserti128 ym0, ym0, xm2, 1
-    ; ; pack rows (128 bits) next to each other
-    ; vinserti128 ym2, ym1, xm3, 1
-    ; ; CORRECT:
-
 
     ; pack rows next to each other
     vinserti128 ym0, ym0, xm1, 1
@@ -97,7 +98,14 @@ cglobal satd_4x4_12bpc, 4, 6, 8, src, src_stride, dst, dst_stride, \
     punpckhqdq      m2, m1, m3
     vperm2i128      m1, m0, m2, 0x20
     vperm2i128      m3, m0, m2, 0x31
-    
+
+    ; TODO maybe just try this instead:
+
+    ; punpckhqdq           m1, m0, m3
+    ; punpcklqdq           m0, m3
+    ; Idk if that's exactly the same though
+
+
     ;               p0          p1        p2         p3
     ; m0    [0+4+ 8+12][0-4+ 8-12][0+4- 8-12][0-4- 8+12] [1+5+ 9+13][1-5+ 9-13][1+5- 9-13][1-5- 9+13] 
     ; m2    [2+6+10+14][2-6+10-14][2+6-10-14][2-6-10+14] [3+7+11+15][3-7+11-15][3+7-11-15][3-7-11+15]
@@ -166,7 +174,7 @@ cglobal satd_4x4_12bpc, 4, 6, 8, src, src_stride, dst, dst_stride, \
     RET
 
 INIT_YMM avx2
-cglobal satd_4x4_10bpc, 4, 6, 4, src, src_stride, dst, dst_stride, \
+cglobal satd_4x4_10bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
                                  src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
