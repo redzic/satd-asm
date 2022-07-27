@@ -188,7 +188,7 @@ SECTION .text
     pmaddwd     PRFX%+INPUT, [pw_1x16]
 %endif
 
-%if mmsize == 32 && %5 == 32
+%if mmsize == 32 && REG_SIZE == 32
     ; add upper half of ymm to xmm
     vextracti128    xm%+TMP, ym%+INPUT, 1
     paddd       xm%+INPUT, xm%+TMP
