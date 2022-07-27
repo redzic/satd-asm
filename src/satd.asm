@@ -20,14 +20,15 @@ pw_1x8:   times 8 dw 1
 INIT_YMM avx2
 cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
                                src_stride3, dst_stride3
+    lea         src_stride3q, [3*src_strideq]
+    lea         dst_stride3q, [3*dst_strideq]
+
     cmp     bdmaxd, ((1 << 10) - 1)
-    je      m(satd_4x4_10bpc)
+    je      .10bpc
 
     ; continue with 12-bit SATD
     ; TODO swap order to continue with 10-bit SATD
 
-    lea         src_stride3q, [3*src_strideq]
-    lea         dst_stride3q, [3*dst_strideq]
 
     ; zero-extend to 32-bits
     pmovzxwd    xm0, [srcq + 0*src_strideq]
@@ -173,12 +174,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     movd        eax, xm0
     RET
 
-INIT_YMM avx2
-cglobal satd_4x4_10bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
-                                 src_stride3, dst_stride3
-    lea         src_stride3q, [3*src_strideq]
-    lea         dst_stride3q, [3*dst_strideq]
-
+.10bpc:
     ; first row and third (4 bytes/row)
     ; load second and fourth row (32 bits, 4x8b)
     movq        xm0, [srcq + 0*src_strideq]
