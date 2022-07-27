@@ -4,7 +4,7 @@
 SECTION_RODATA 32
 
 align 16
-pw_1x8:   times 8 dw 1
+pw_1x16:   times 16 dw 1
 
 SECTION .text
 
@@ -86,13 +86,17 @@ SECTION .text
     SWAP 2, 1, 0, 1
 %endmacro
 
-; TODO maybe move initial permutation here?
 ; macro parameter; 16-bit precision or 32-bit precision
 %macro HADAMARD_4X4_PACKED 1
+    ; Starting registers:
+
     ; m0    0    1   2   3
     ; m1    4    5   6   7
     ; m2    8    9  10  11
     ; m3    12  13  14  15
+
+    ; Where each number represents an index of the
+    ; original block of differences.
 
 %if %1 == 16
     ; In this case, each row only has 64 bits.
@@ -146,34 +150,56 @@ SECTION .text
     ; p2  q2  r2  s2
     ; p3  q3  r3  s3
 
-    ; do horizontal transform transform
+    ; Horizontal transform; since the output is flipped from the original order,
+    ; we can do the same steps as the vertical transform and the result will be the same.
     BUTTERFLY %1
     INTERLEAVE %1
     BUTTERFLY %1
-    ; no interleave pairs, as order of summing it up doesn't matter
+
+    ; don't interleave pairs, as order of summation doesn't matter
 %endmacro
 
-; Horizontal sum of %1
+; Horizontal sum of mm register
 ;
 ; Inputs:
-; %1 = Input register to sum
-; %2 = Temporary register
-; %3 = Output register
-%macro HSUM 1
-%if %1 == 16
-    pmaddwd     %1, [pw_1x8]
-%elif %1 == 32
+; %1 = Element size in bits (16 or 32)
+; %2 = Size of register in bytes (16 or 32)
+; %3 = Input register number
+; %4 = Temporary register number
+; %5 = Output register (e.g., eax)
+%macro HSUM 5
+
+%define E_SIZE %1
+%define REG_SIZE %2
+%define INPUT %3
+%define TMP %4
+%define OUTPUT %5
+
+%if REG_SIZE == 16
+%define PRFX xm
+%elif REG_SIZE == 32
+%define PRFX ym
 %else
-    %error Incorrect precision specified (16 or 32 expected, found %1)
+    %error Invalid register size (expected 16 or 32)
 %endif
-; TODO check if this is undef after end of macro
-%define tmp %2
+
+; reduce to 32-bits
+%if E_SIZE == 16
+    pmaddwd     PRFX%+INPUT, [pw_1x16]
+%endif
+
+%if mmsize == 32 && %5 == 32
+    ; add upper half of ymm to xmm
+    vextracti128    xm%+TMP, ym%+INPUT, 1
+    paddd       xm%+INPUT, xm%+TMP
+%endif
+
     ; reduce 32-bit results
-    pshufd      xm0, xm1, q2323
-    paddd       xm1, xm0
-    pshufd      xm0, xm1, q1111
-    paddd       xm1, xm0
-    movd        %3, xm1
+    pshufd      xm%+TMP,     xm%+INPUT, q2323
+    paddd       xm%+INPUT,   xm%+TMP
+    pshufd      xm%+TMP,     xm%+INPUT, q1111
+    paddd       xm%+INPUT,   xm%+TMP
+    movd        OUTPUT,     xm%+INPUT
 %endmacro
 
 INIT_YMM avx2
@@ -182,7 +208,6 @@ cglobal satd_4x4_10bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     ; TODO implement with double hadamard transform in ymm registers
     ; for 12-bit... might have to resort to calling 4x4 transform twice
     ; since we don't have 512-bit registers in AVX2
-
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
 
@@ -208,13 +233,7 @@ cglobal satd_4x4_10bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     pabsw       xm1, xm1
     paddw       xm0, xm1
 
-    ; Sum adjacent pairs into 32-bit results
-    pmaddwd     xm0, [pw_1x8]
-    pshufd      xm1, xm0, q2323
-    paddd       xm0, xm1
-    pshufd      xm1, xm0, q1111
-    paddd       xm0, xm1
-    movd        eax, xm0
+    HSUM    16, 16, 0, 1, eax
     RET
 
 INIT_YMM avx2
@@ -352,7 +371,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 
     ; horizontally reduce coefficients
     ; accumulate adjacent 16-bit pairs into 32-bit results
-    pmaddwd     xm1, [pw_1x8]
+    pmaddwd     xm1, [pw_1x16]
     ; reduce 32-bit results
     pshufd      xm0, xm1, q2323
     paddd       xm1, xm0
