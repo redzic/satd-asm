@@ -162,6 +162,8 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     RET
 
 .12bpc:
+    RESET_MM_PERMUTATION
+
     ; continue with 12-bit SATD
     ; TODO swap order to continue with 10-bit SATD
 
