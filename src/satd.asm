@@ -1,21 +1,221 @@
 %include "config.asm"
 %include "x86inc.asm"
 
-SECTION .text
-
-; so for 10-bit, this is fine...
-; just not for 12-bit. for that we need 32-bit precision
-
-; TODO Make this actually subtract differences from 2 planes
-
-; <num args>, <GPRs>, <num X/Y/ZMM regs used>
-
-; TODO rename src and dst
-
-%define m(x) mangle(private_prefix %+ _ %+ x %+ SUFFIX)
+SECTION_RODATA 32
 
 align 16
 pw_1x8:   times 8 dw 1
+
+SECTION .text
+
+; <num args>, <GPRs>, <num X/Y/ZMM regs used>
+
+%define m(x) mangle(private_prefix %+ _ %+ x %+ SUFFIX)
+
+; Add and subtract registers
+; 
+; Takes m0 and m1 as both input and output.
+; Requires m2 as a free register.
+; 
+; If we start with this permutation:
+; 
+; m0    0 1  2  3    4  5  6  7
+; m1    8 9 10 11   12 13 14 15
+; 
+; Then the output will be as such:
+; 
+; m0    [0+8][1+9][2+10][3+11] [4+12][5+13][6+14][7+15]
+; m1    [0-8][1-9][2-10][3-11] [4-12][5-13][6-14][7-15]
+%macro BUTTERFLY 1
+    ; use m2 as a temporary register, then swap
+    ; so that m0 and m1 contain the output
+%if %1 == 16
+    paddw       xm2, xm0, xm1
+    psubw       xm0, xm1
+%elif %1 == 32
+    paddd       ym2, ym0, ym1
+    psubd       ym0, ym1
+%else
+    %error Incorrect precision specified (16 or 32 expected, found %1)
+%endif
+    SWAP 2, 1, 0, 1
+%endmacro
+
+; Interleave packed rows together (in m0 and m1).
+; m2 should contain a free register.
+; 
+; Macro argument takes size in bits of each element (where one
+; element is the difference between two original source pixels).
+; 
+; If we start with this permutation:
+; 
+; m0    0 1  2  3    4  5  6  7
+; m1    8 9 10 11   12 13 14 15
+; 
+; Then, after INTERLEAVE, this will be the permutation:
+; 
+; m0    0  8  1  9   2 10  3 11
+; m1    4 12  5 13   6 14  7 15
+%macro INTERLEAVE 1
+%if %1 == 16
+    punpcklwd   xm2, xm0, xm1
+    punpckhwd   xm0, xm1
+%elif %1 == 32
+    punpckldq   ym2, ym0, ym1
+    punpckhdq   ym0, ym1
+%else
+    %error Incorrect precision specified (16 or 32 expected, found %1)
+%endif
+
+    SWAP 2, 1, 0, 1
+%endmacro
+
+; Interleave pairs of 2 elements
+; m0 and m1 are input
+%macro INTERLEAVE_PAIRS 1
+%if %1 == 16
+    punpckldq   xm2, xm0, xm1
+    punpckhdq   xm0, xm1
+%elif %1 == 32
+    ; TODO not sure if this is right
+    punpcklqdq  ym2, ym0, ym1
+    punpckhqdq  ym0, ym1
+%else
+    %error Incorrect precision specified (16 or 32 expected, found %1)
+%endif
+    SWAP 2, 1, 0, 1
+%endmacro
+
+; TODO maybe move initial permutation here?
+; macro parameter; 16-bit precision or 32-bit precision
+%macro HADAMARD_4X4_PACKED 1
+    ; m0    0    1   2   3
+    ; m1    4    5   6   7
+    ; m2    8    9  10  11
+    ; m3    12  13  14  15
+
+%if %1 == 16
+    ; In this case, each row only has 64 bits.
+    ; Each element is 16 bits, and there are 4 of them.
+    ; Pack rows 0 and 2
+    punpcklqdq  xm0, xm2
+    ; Pack rows 1 and 3
+    punpcklqdq  xm1, xm3
+%elif %1 == 32
+    ; pack rows next to each other
+    vinserti128 ym0, ym0, xm2, 1
+    ; pack rows (128 bits) next to each other
+    vinserti128 ym1, ym1, xm3, 1
+%endif
+
+    ; Now that we've packed rows 0-2 and 1-3 together,
+    ; this is our permutation:
+
+    ; m0    0 1 2 3   8  9 10 11
+    ; m1    4 5 6 7  12 13 14 15
+
+    BUTTERFLY %1
+
+    ; m0    [0+4][1+5][2+6][3+7] [8+12][9+13][10+14][11+15]
+    ; m1    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
+
+    INTERLEAVE %1
+
+    ; m0    [ 0+4][ 0-4][ 1+5][ 1-5] [2 + 6][2 - 6][3 + 7][3 - 7]
+    ; m1    [8+12][8-12][9+13][9-13] [10+14][10-14][11+15][11-15]
+
+    BUTTERFLY %1
+
+    ; m0    [0+4+8+12][0-4+8-12][1+5+9+13][1-5+9-13] [2+6+10+14][2-6+10-14][3+7+11+15][3-7+11-15]
+    ; m1    [0+4-8-12][0-4-8+12][1+5-9-13][1-5-9+13] [2+6-10-14][2-6-10+14][3+7-11-15][3-7-11+15]
+
+    ; for one row:
+    ; [0+1+2+3][0-1+2-3][0+1-2-3][0-1-2+3]
+    ; For the vertical transform, these are packed into a new column.
+
+    INTERLEAVE_PAIRS %1
+
+    ;                p0         p1         p2         p3
+    ; m0    [0+4+ 8+12][0-4+ 8-12][0+4- 8-12][0-4- 8+12] [1+5+ 9+13][1-5+ 9-13][1+5- 9-13][1-5- 9+13] 
+    ; m1    [2+6+10+14][2-6+10-14][2+6-10-14][2-6-10+14] [3+7+11+15][3-7+11-15][3+7-11-15][3-7-11+15]
+
+    ; According to this grid:
+
+    ; p0  q0  r0  s0
+    ; p1  q1  r1  s1
+    ; p2  q2  r2  s2
+    ; p3  q3  r3  s3
+
+    ; do horizontal transform transform
+    BUTTERFLY %1
+    INTERLEAVE %1
+    BUTTERFLY %1
+    ; no interleave pairs, as order of summing it up doesn't matter
+%endmacro
+
+; Horizontal sum of %1
+;
+; Inputs:
+; %1 = Input register to sum
+; %2 = Temporary register
+; %3 = Output register
+%macro HSUM 1
+%if %1 == 16
+    pmaddwd     %1, [pw_1x8]
+%elif %1 == 32
+%else
+    %error Incorrect precision specified (16 or 32 expected, found %1)
+%endif
+; TODO check if this is undef after end of macro
+%define tmp %2
+    ; reduce 32-bit results
+    pshufd      xm0, xm1, q2323
+    paddd       xm1, xm0
+    pshufd      xm0, xm1, q1111
+    paddd       xm1, xm0
+    movd        %3, xm1
+%endmacro
+
+INIT_YMM avx2
+cglobal satd_4x4_10bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
+                               src_stride3, dst_stride3
+    ; TODO implement with double hadamard transform in ymm registers
+    ; for 12-bit... might have to resort to calling 4x4 transform twice
+    ; since we don't have 512-bit registers in AVX2
+
+    lea         src_stride3q, [3*src_strideq]
+    lea         dst_stride3q, [3*dst_strideq]
+
+    ; first row and third (4 bytes/row)
+    ; load second and fourth row (32 bits, 4x8b)
+    movq        xm0, [srcq + 0*src_strideq]
+    movq        xm1, [srcq + 1*src_strideq]
+    movq        xm2, [srcq + 2*src_strideq]
+    movq        xm3, [srcq + src_stride3q ]
+
+    psubw       xm0, [dstq + 0*dst_strideq]
+    psubw       xm1, [dstq + 1*dst_strideq]
+    psubw       xm2, [dstq + 2*dst_strideq]
+    psubw       xm3, [dstq + dst_stride3q ]
+
+    ; After packing the rows, our register permutation looks like this:
+    ; m0    0 1 2 3   8  9 10 11
+    ; m1    4 5 6 7  12 13 14 15
+
+    HADAMARD_4X4_PACKED 16
+
+    pabsw       xm0, xm0
+    pabsw       xm1, xm1
+    paddw       xm0, xm1
+
+    ; Sum adjacent pairs into 32-bit results
+    pmaddwd     xm0, [pw_1x8]
+    pshufd      xm1, xm0, q2323
+    paddd       xm0, xm1
+    pshufd      xm1, xm0, q1111
+    paddd       xm0, xm1
+    movd        eax, xm0
+    RET
 
 INIT_YMM avx2
 cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
