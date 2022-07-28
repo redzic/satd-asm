@@ -80,13 +80,15 @@ pub unsafe fn hadamard4x4(data: &mut [i32]) {
     hadamard2d::<{ 4 * 4 }, 4, 4>(&mut *(data.as_mut_ptr() as *mut [i32; 16]));
 }
 
-// pub fn satd4x4_rust(data: &[u8; 16]) -> u64 {
-//     let mut tmp = [0; 16];
-//     for i in 0..16 {
-//         tmp[i] = data[i] as i32;
-//     }
-//     satd4x4(&mut tmp)
-// }
+pub fn satd8x4_rust(src: &[u16; 32], dst: &[u16; 32]) -> u64 {
+    let mut buf = [0; 32];
+
+    for i in 0..32 {
+        buf[i] = src[i] as i32 - dst[i] as i32;
+    }
+
+    unsafe { satd::<{ 8 * 4 }, 8, 4>(&mut buf) }
+}
 
 pub fn satd4x4_rust(src: &[u16; 16], dst: &[u16; 16]) -> u64 {
     let mut buf = [0; 16];
@@ -95,11 +97,7 @@ pub fn satd4x4_rust(src: &[u16; 16], dst: &[u16; 16]) -> u64 {
         buf[i] = src[i] as i32 - dst[i] as i32;
     }
 
-    unsafe {
-        hadamard4x4(&mut buf);
-    }
-
-    buf.iter().map(|&x| x.unsigned_abs() as u64).sum()
+    unsafe { satd::<16, 4, 4>(&mut buf) }
 }
 
 pub unsafe fn satd<const LEN: usize, const W: usize, const H: usize>(data: &mut [i32; LEN]) -> u64 {
@@ -131,16 +129,14 @@ pub unsafe fn satd<const LEN: usize, const W: usize, const H: usize>(data: &mut 
 
     // loop over blocks
     // LEN / W = H
-    for y in 0..(LEN / W) / transform_size {
+    for y in (0..LEN / W).step_by(transform_size) {
         // LEN / H = W
-        for x in 0..(LEN / H) / transform_size {
+        for x in (0..LEN / H).step_by(transform_size) {
             // copy block into buffer
             for i in 0..transform_size {
                 // copy row
-                buf[i * stride..][..transform_size].copy_from_slice(
-                    &data[y * stride * transform_size + x * transform_size + i * stride..]
-                        [..transform_size],
-                );
+                buf[i * transform_size..][..transform_size]
+                    .copy_from_slice(&data[y * stride + x + i * stride..][..transform_size]);
             }
             transform(buf);
 

@@ -6,6 +6,14 @@ use std::mem::transmute;
 mod satd_rust;
 
 extern "C" {
+    fn rav1e_satd_8x4_16bpc_avx2(
+        src: *const u16,
+        src_stride: usize,
+        dst: *const u16,
+        dst_stride: usize,
+        bdmax: u32,
+    ) -> u64;
+
     fn rav1e_satd_4x4_16bpc_avx2(
         src: *const u16,
         src_stride: usize,
@@ -39,10 +47,32 @@ fn main() {
 mod tests {
     use rand::Rng;
 
-    use crate::{satd_rust::satd4x4_rust, *};
+    use crate::{satd_rust::*, *};
 
     #[test]
-    fn check() {
+    fn check_8x4_satd_asm() {
+        let mut src = [0; 32];
+        let mut dst = [0; 32];
+
+        let stride = 8 * std::mem::size_of::<u16>();
+
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..12000 {
+            src.fill_with(|| rng.gen_range(0..=1023));
+            dst.fill_with(|| rng.gen_range(0..=1023));
+
+            let satd_avx2 = unsafe {
+                rav1e_satd_8x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 10) - 1)
+            };
+            let satd_rust = satd8x4_rust(&src, &dst);
+
+            assert_eq!(satd_avx2, satd_rust);
+        }
+    }
+
+    #[test]
+    fn check_4x4_satd_asm() {
         let mut src = [0; 16];
         let mut dst = [0; 16];
 

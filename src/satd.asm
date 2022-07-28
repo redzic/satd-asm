@@ -321,3 +321,9 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     paddd       m0, m1
     HSUM 32, 32, 0, 1, eax
     RET
+
+INIT_YMM avx2
+cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
+                               src_stride3, dst_stride3
+    xor eax, eax
+    RET
