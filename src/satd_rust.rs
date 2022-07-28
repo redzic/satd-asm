@@ -98,6 +98,12 @@ pub fn satd4x4_rust(src: &[u16; 16], dst: &[u16; 16]) -> u64 {
     }
 
     unsafe { satd::<16, 4, 4>(&mut buf) }
+
+    // unsafe {
+    //     hadamard4x4(&mut buf);
+    // }
+
+    // buf.iter().map(|&x| x.unsigned_abs() as u64).sum()
 }
 
 pub unsafe fn satd<const LEN: usize, const W: usize, const H: usize>(data: &mut [i32; LEN]) -> u64 {
@@ -136,7 +142,7 @@ pub unsafe fn satd<const LEN: usize, const W: usize, const H: usize>(data: &mut 
             for i in 0..transform_size {
                 // copy row
                 buf[i * transform_size..][..transform_size]
-                    .copy_from_slice(&data[y * stride + x..][..transform_size]);
+                    .copy_from_slice(&data[y * stride + x + i * stride..][..transform_size]);
             }
             transform(buf);
 

@@ -325,5 +325,5 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 INIT_YMM avx2
 cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
                                src_stride3, dst_stride3
-    xor eax, eax
+    mov rax, 1
     RET
