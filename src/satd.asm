@@ -120,7 +120,7 @@ SECTION .text
     %else
         %error Invalid vector size (expected 16 or 32)
     %endif
-    
+
     %if BIT_PRECISION == 16
         punpckldq   V%+ 2, V%+ 0, V%+ 1
         punpckhdq   V%+ 0, V%+ 1
