@@ -112,9 +112,18 @@ SECTION .text
 %macro INTERLEAVE_PAIRS 2
     %define BIT_PRECISION %1
     %define VEC_SIZE %2
+
+    %if VEC_SIZE == 16
+        %define V xm
+    %elif VEC_SIZE == 32
+        %define V ym
+    %else
+        %error Invalid vector size (expected 16 or 32)
+    %endif
+    
     %if BIT_PRECISION == 16
-        punpckldq   xm2, xm0, xm1
-        punpckhdq   xm0, xm1
+        punpckldq   V%+ 2, V%+ 0, V%+ 1
+        punpckhdq   V%+ 0, V%+ 1
     %elif BIT_PRECISION == 32
         punpcklqdq  ym2, ym0, ym1
         punpckhqdq  ym0, ym1
@@ -124,11 +133,19 @@ SECTION .text
     SWAP 2, 1, 0, 1
 %endmacro
 
-%macro HADAMARD_4X4_PACKED 2
+; %macro PACK_ROWS 2
+;     %define BIT_PRECISION %1
+;     %define VEC_SIZE %2
+; %endmacro
 
-%define BIT_PRECISION %1
-; Register size to use (in bytes)
-%define VEC_SIZE %2
+%macro HADAMARD_4X4_PACKED 3
+
+    %define DBG %3
+
+    %define BIT_PRECISION %1
+    ; Register size to use (in bytes)
+    %define VEC_SIZE %2
+
     %if VEC_SIZE == 16
         %define V xm
     %elif VEC_SIZE == 32
@@ -147,19 +164,30 @@ SECTION .text
     ; Where each number represents an index of the
     ; original block of differences.
 
-        ; Pack rows 0,2 and 1,3 into m0 and m1
+%if DBG == 1
+    ; movu    [r4+0*16], xm0
+    ; movu    [r4+1*16], xm1
+    ; movu    [r4+2*16], xm2
+    ; movu    [r4+3*16], xm3
+%endif
+
+    ; TODO possibly extract this out to a macro
+    ; Pack rows 0,2 and 1,3 into m0 and m1
     %if BIT_PRECISION == 16
-        ; In this case, each row only has 64 bits, so we use
-        ; punpcklqdq only.
-        punpcklqdq  V%+ 0, V%+ 2
-        punpcklqdq  V%+ 1, V%+ 3
-
-        ; ; Interleave high 64 bits as well
-        ; %if VEC_SIZE == 32
-        ; punpckhqdq  xm0, xm2
-        ; punpckhqdq  xm1, xm3
-        ; %endif
-
+        %if VEC_SIZE == 16
+            ; In this case, each row only has 64 bits, so we use
+            ; punpcklqdq only.
+            punpcklqdq  xm0, xm2
+            punpcklqdq  xm1, xm3
+        %elif VEC_SIZE == 32
+            ; In this case, the upper 128 bits of all input registers is 0
+            punpcklqdq      m4, m0, m2
+            punpcklqdq      m5, m1, m3
+            punpckhqdq      m0, m0, m2
+            punpckhqdq      m1, m1, m3
+            vinserti128     m0, m4, xm0, 1
+            vinserti128     m1, m5, xm1, 1
+        %endif
     %elif BIT_PRECISION == 32
         vinserti128 ym0, ym0, xm2, 1
         vinserti128 ym1, ym1, xm3, 1
@@ -170,8 +198,19 @@ SECTION .text
     ; Now that we've packed rows 0-2 and 1-3 together,
     ; this is our permutation:
 
+    ; For a 8x4 transform, this pattern is extended for each register,
+    ; but for the second block.
+
     ; m0    0 1 2 3   8  9 10 11
     ; m1    4 5 6 7  12 13 14 15
+
+%if DBG == 1
+    movu    [r4+0*32], m0
+    movu    [r4+1*32], m1
+    ; movu    [r4+0*32], m4
+    ; movu    [r4+1*32], m5
+%endif
+
 
     BUTTERFLY %1, %2
 
@@ -283,7 +322,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     psubw       xm2, [dstq + 2*dst_strideq]
     psubw       xm3, [dstq + dst_stride3q ]
 
-    HADAMARD_4X4_PACKED 16, 16
+    HADAMARD_4X4_PACKED 16, 16, 0
 
     ; Sum up absolute value of transform coefficients
     pabsw       xm0, xm0
@@ -313,7 +352,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     psubd       xm2, xm6
     psubd       xm3, xm7
 
-    HADAMARD_4X4_PACKED 32, 32
+    HADAMARD_4X4_PACKED 32, 32, 0
 
     ; Sum up absolute value of transform coefficients
     pabsd       m0, m0
@@ -323,7 +362,28 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     RET
 
 INIT_YMM avx2
-cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
+cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
                                src_stride3, dst_stride3
-    mov rax, 1
+    lea         src_stride3q, [3*src_strideq]
+    lea         dst_stride3q, [3*dst_strideq]
+
+    ; Load src rows
+    movu        xm0, [srcq + 0*src_strideq]
+    movu        xm1, [srcq + 1*src_strideq]
+    movu        xm2, [srcq + 2*src_strideq]
+    movu        xm3, [srcq + src_stride3q ]
+
+    ; src -= dst
+    psubw       xm0, [dstq + 0*dst_strideq]
+    psubw       xm1, [dstq + 1*dst_strideq]
+    psubw       xm2, [dstq + 2*dst_strideq]
+    psubw       xm3, [dstq + dst_stride3q ]
+
+    HADAMARD_4X4_PACKED 16, 32, 1
+
+    pabsw   m0, m0
+    pabsw   m1, m1
+    paddw   m0, m1
+    ; TODO fix all of this
+    HSUM    16, 32, 0, 1, eax
     RET

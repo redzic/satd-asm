@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use crate::satd_rust::{hadamard4x4, satd, satd4x4_rust};
+use crate::satd_rust::*;
 use std::mem::transmute;
 
 mod satd_rust;
@@ -11,7 +11,7 @@ extern "C" {
         src_stride: usize,
         dst: *const u16,
         dst_stride: usize,
-        bdmax: u32,
+        bdmax: &mut [i16; 32],
     ) -> u64;
 
     fn rav1e_satd_4x4_16bpc_avx2(
@@ -24,18 +24,28 @@ extern "C" {
 }
 
 fn main() {
-    let mut src = [0; 16];
-    let mut dst = [0; 16];
-    let mut buf = [0; 16];
+    let mut src = [0; 32];
+    let mut dst = [0; 32];
+    let mut buf = [0; 32];
 
-    for i in 0..16 {
+    for i in 0..32 {
         src[i] = i as u16;
     }
 
-    unsafe {
-        let satd = rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8, (1 << 12) - 1);
+    // for i in 0..16 {
+    //     src[i] = i as u16;
+    //     dst[i + 16] = i as u16;
+    // }
 
-        let satd_rust = satd4x4_rust(&src, &dst);
+    let stride = 8 * 2;
+
+    unsafe {
+        // let satd = rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8, (1 << 12) - 1);
+
+        // let satd_rust = satd4x4_rust(&src, &dst);
+        let satd = rav1e_satd_8x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, &mut buf);
+
+        let satd_rust = satd8x4_rust(&src, &dst);
 
         println!("buf: {buf:?}");
         println!(" satd_asm: {satd}");
