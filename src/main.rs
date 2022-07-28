@@ -50,9 +50,6 @@ mod tests {
 
         let mut rng = rand::thread_rng();
 
-        // 10-bit -- we're good
-        // 12-bit -- 32-bit precision is required
-
         for _ in 0..12000 {
             src.fill_with(|| rng.gen_range(0..=4095));
             dst.fill_with(|| rng.gen_range(0..=4095));

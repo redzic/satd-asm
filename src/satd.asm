@@ -27,16 +27,19 @@ SECTION .text
 ; m0    [0+8][1+9][2+10][3+11] [4+12][5+13][6+14][7+15]
 ; m1    [0-8][1-9][2-10][3-11] [4-12][5-13][6-14][7-15]
 %macro BUTTERFLY 1
+
+%define BIT_PRECISION %1
+
     ; Use m2 as a temporary register, then swap
     ; so that m0 and m1 contain the output.
-%if %1 == 16
+%if BIT_PRECISION == 16
     paddw       xm2, xm0, xm1
     psubw       xm0, xm1
-%elif %1 == 32
+%elif BIT_PRECISION == 32
     paddd       ym2, ym0, ym1
     psubd       ym0, ym1
 %else
-    %error Incorrect precision specified (16 or 32 expected, found %1)
+    %error Incorrect precision specified (16 or 32 expected)
 %endif
     SWAP 2, 1, 0, 1
 %endmacro
@@ -57,11 +60,14 @@ SECTION .text
 ; m0    0  8  1  9   2 10  3 11
 ; m1    4 12  5 13   6 14  7 15
 %macro INTERLEAVE 1
-%if %1 == 16
+
+%define BIT_PRECISION %1
+
+%if BIT_PRECISION == 16
     punpcklwd   xm2, xm0, xm1
     punpckhwd   xm0, xm1
     SWAP 2, 1, 0, 1
-%elif %1 == 32
+%elif BIT_PRECISION == 32
     punpckldq   ym2, ym0, ym1
     punpckhdq   ym0, ym1
     ; AVX2 shuffles operate over 128-bit halves of the full ymm register
@@ -70,7 +76,7 @@ SECTION .text
     vperm2i128  ym0, ym2, ym0, 0x31
     SWAP 0, 1
 %else
-    %error Incorrect precision specified (16 or 32 expected, found %1)
+    %error Incorrect precision specified (16 or 32 expected)
 %endif
 
 %endmacro
@@ -78,14 +84,17 @@ SECTION .text
 ; Interleave pairs of 2 elements (in m0 and m1)
 ; m2 should contain a free register.
 %macro INTERLEAVE_PAIRS 1
-%if %1 == 16
+
+%define BIT_PRECISION %1
+
+%if BIT_PRECISION == 16
     punpckldq   xm2, xm0, xm1
     punpckhdq   xm0, xm1
-%elif %1 == 32
+%elif BIT_PRECISION == 32
     punpcklqdq  ym2, ym0, ym1
     punpckhqdq  ym0, ym1
 %else
-    %error Incorrect precision specified (16 or 32 expected, found %1)
+    %error Incorrect precision specified (16 or 32 expected)
 %endif
     SWAP 2, 1, 0, 1
 %endmacro
