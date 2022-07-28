@@ -6,14 +6,6 @@ use std::mem::transmute;
 mod satd_rust;
 
 extern "C" {
-    fn rav1e_satd_4x4_10bpc_avx2(
-        src: *const u16,
-        src_stride: usize,
-        dst: *const u16,
-        dst_stride: usize,
-        bdmax: u32,
-    ) -> u64;
-
     fn rav1e_satd_4x4_16bpc_avx2(
         src: *const u16,
         src_stride: usize,
@@ -68,7 +60,7 @@ mod tests {
             dst.fill_with(|| rng.gen_range(0..=4095));
 
             let satd_avx2 = unsafe {
-                rav1e_satd_4x4_10bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 12) - 1)
+                rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 12) - 1)
             };
             let satd_rust = satd4x4_rust(&src, &dst);
 
