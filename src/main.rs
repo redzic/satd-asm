@@ -53,12 +53,23 @@ mod tests {
         // 10-bit -- we're good
         // 12-bit -- 32-bit precision is required
 
-        loop {
+        for _ in 0..12000 {
             src.fill_with(|| rng.gen_range(0..=4095));
             dst.fill_with(|| rng.gen_range(0..=4095));
 
             let satd_avx2 = unsafe {
                 rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 12) - 1)
+            };
+            let satd_rust = satd4x4_rust(&src, &dst);
+
+            assert_eq!(satd_avx2, satd_rust);
+        }
+        for _ in 0..12000 {
+            src.fill_with(|| rng.gen_range(0..=1023));
+            dst.fill_with(|| rng.gen_range(0..=1023));
+
+            let satd_avx2 = unsafe {
+                rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 10) - 1)
             };
             let satd_rust = satd4x4_rust(&src, &dst);
 
