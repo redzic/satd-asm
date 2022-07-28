@@ -79,7 +79,7 @@ pub unsafe fn hadamard4x4(data: &mut [i32]) {
 
     hadamard2d::<{ 4 * 4 }, 4, 4>(&mut *(data.as_mut_ptr() as *mut [i32; 16]));
 
-    println!("[RUST]: {data:?}");
+    // println!("[RUST]: {data:?}");
 }
 
 pub fn satd8x4_rust(src: &[u16; 32], dst: &[u16; 32]) -> u64 {

@@ -180,7 +180,7 @@ SECTION .text
             punpcklqdq  xm0, xm2
             punpcklqdq  xm1, xm3
         %elif VEC_SIZE == 32
-            ; In this case, the upper 128 bits of all input registers is 0
+            ; The upper 128 bits of all input registers are zeroed
             punpcklqdq      m4, m0, m2
             punpcklqdq      m5, m1, m3
             punpckhqdq      m0, m0, m2
@@ -199,7 +199,8 @@ SECTION .text
     ; this is our permutation:
 
     ; For a 8x4 transform, this pattern is extended for each register,
-    ; but for the second block.
+    ; but for the second block, and thus, all comments also apply to
+    ; the upper 128-bits for the 8x4 transform.
 
     ; m0    0 1 2 3   8  9 10 11
     ; m1    4 5 6 7  12 13 14 15
