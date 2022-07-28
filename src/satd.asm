@@ -57,7 +57,7 @@ SECTION .text
         %error Incorrect precision specified (16 or 32 expected)
     %endif
 
-    SWAP 2, 1, 0, 1
+    SWAP 2, 1, 0
 %endmacro
 
 ; Interleave packed rows together (in m0 and m1).
@@ -93,7 +93,7 @@ SECTION .text
     %if BIT_PRECISION == 16
         punpcklwd   V%+ 2, V%+ 0, V%+ 1
         punpckhwd   V%+ 0, V%+ 1
-        SWAP 2, 1, 0, 1
+        SWAP 2, 1, 0
     %elif BIT_PRECISION == 32
         punpckldq   ym2, ym0, ym1
         punpckhdq   ym0, ym1
@@ -130,7 +130,7 @@ SECTION .text
     %else
         %error Incorrect precision specified (16 or 32 expected)
     %endif
-    SWAP 2, 1, 0, 1
+    SWAP 2, 1, 0
 %endmacro
 
 ; %macro PACK_ROWS 2
