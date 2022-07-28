@@ -176,7 +176,7 @@ SECTION .text
     %if BIT_PRECISION == 16
         %if VEC_SIZE == 16
             ; In this case, each row only has 64 bits, so we use
-            ; punpcklqdq only.
+            ; punpcklqdq only. The high 64 bits are always 0.
             punpcklqdq  xm0, xm2
             punpcklqdq  xm1, xm3
         %elif VEC_SIZE == 32
@@ -204,12 +204,12 @@ SECTION .text
     ; m0    0 1 2 3   8  9 10 11
     ; m1    4 5 6 7  12 13 14 15
 
-%if DBG == 1
-    movu    [r4+0*32], m0
-    movu    [r4+1*32], m1
-    ; movu    [r4+0*32], m4
-    ; movu    [r4+1*32], m5
-%endif
+; %if DBG == 1
+;     movu    [r4+0*32], m0
+;     movu    [r4+1*32], m1
+;     ; movu    [r4+0*32], m4
+;     ; movu    [r4+1*32], m5
+; %endif
 
 
     BUTTERFLY %1, %2
