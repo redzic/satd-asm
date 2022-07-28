@@ -252,7 +252,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     HSUM 16, 16, 0, 1, eax
     RET
 .12bpc:
-    ; make disassembly nicer
+    ; Make disassembly less confusing to read
     RESET_MM_PERMUTATION
 
     ; Load src rows
