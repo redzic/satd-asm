@@ -388,3 +388,30 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     ; TODO fix all of this
     HSUM    16, 32, 0, 1, eax
     RET
+.12bpc:
+    RESET_MM_PERMUTATION
+
+    pmovzxwd    m0, [srcq + 0*src_strideq]
+    pmovzxwd    m1, [srcq + 1*src_strideq]
+    pmovzxwd    m2, [srcq + 2*src_strideq]
+    pmovzxwd    m3, [srcq + src_stride3q ]
+
+    pmovzxwd    m4, [dstq + 0*dst_strideq]
+    pmovzxwd    m5, [dstq + 1*dst_strideq]
+    pmovzxwd    m6, [dstq + 2*dst_strideq]
+    pmovzxwd    m7, [dstq + dst_stride3q ]
+
+    ; src -= dst
+    ; each reg is 8x 32 bits (256 bits)
+    psubd       m0, m4
+    psubd       m1, m5
+    psubd       m2, m6
+    psubd       m3, m7
+
+    RET
+
+; INIT_YMM avx2
+; cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
+;                                src_stride3, dst_stride3
+;     xor eax, eax
+;     RET
