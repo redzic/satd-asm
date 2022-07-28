@@ -408,6 +408,12 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     psubd       m2, m6
     psubd       m3, m7
 
+    ; 4 coefficients is 128 bits
+    vinserti128 m0, m0, xm2, 1
+    vinserti128 m1, m1, xm3, 1
+    ; vinserti128 m2, m0, xm2, 1
+    ; vinserti128 m3, m1, xm3, 1
+
     RET
 
 ; INIT_YMM avx2
