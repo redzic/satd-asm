@@ -25,9 +25,7 @@ fn main() {
     }
 
     unsafe {
-        let satd = rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8, (1 << 10) - 1);
-        // let satd = rav1e_satd_4x4_hbd_avx2(src.as_ptr(), 8, dst.as_ptr(), 8, (1 << 12) - 1);
-        // let satd = rav1e_satd_4x4_10bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8);
+        let satd = rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), 8, dst.as_ptr(), 8, (1 << 12) - 1);
 
         let satd_rust = satd4x4_rust(&src, &dst);
 
@@ -56,11 +54,11 @@ mod tests {
         // 12-bit -- 32-bit precision is required
 
         loop {
-            src.fill_with(|| rng.gen_range(0..=4095));
-            dst.fill_with(|| rng.gen_range(0..=4095));
+            src.fill_with(|| rng.gen_range(0..=1023));
+            dst.fill_with(|| rng.gen_range(0..=1023));
 
             let satd_avx2 = unsafe {
-                rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 12) - 1)
+                rav1e_satd_4x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 10) - 1)
             };
             let satd_rust = satd4x4_rust(&src, &dst);
 

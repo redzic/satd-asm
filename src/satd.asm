@@ -89,8 +89,10 @@ SECTION .text
     SWAP 2, 1, 0, 1
 %endmacro
 
-; macro parameter; 16-bit precision or 32-bit precision
 %macro HADAMARD_4X4_PACKED 1
+
+%define BIT_PRECISION %1
+
     ; Starting registers:
 
     ; m0    0    1   2   3
@@ -101,14 +103,14 @@ SECTION .text
     ; Where each number represents an index of the
     ; original block of differences.
 
-%if %1 == 16
+%if BIT_PRECISION == 16
     ; In this case, each row only has 64 bits.
     ; Each element is 16 bits, and there are 4 of them.
     ; Pack rows 0 and 2
     punpcklqdq  xm0, xm2
     ; Pack rows 1 and 3
     punpcklqdq  xm1, xm3
-%elif %1 == 32
+%elif BIT_PRECISION == 32
     ; pack rows next to each other
     vinserti128 ym0, ym0, xm2, 1
     ; pack rows (128 bits) next to each other
