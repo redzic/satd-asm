@@ -136,7 +136,7 @@ pub unsafe fn satd<const LEN: usize, const W: usize, const H: usize>(data: &mut 
             for i in 0..transform_size {
                 // copy row
                 buf[i * transform_size..][..transform_size]
-                    .copy_from_slice(&data[y * stride + x + i * stride..][..transform_size]);
+                    .copy_from_slice(&data[y * stride + x..][..transform_size]);
             }
             transform(buf);
 
