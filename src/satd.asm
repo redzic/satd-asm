@@ -64,6 +64,8 @@ SECTION .text
 %elif %1 == 32
     punpckldq   ym2, ym0, ym1
     punpckhdq   ym0, ym1
+    ; AVX2 shuffles operate over 128-bit halves of the full ymm register
+    ; in parallel, so these shuffles are required to fix up the permutation.
     vperm2i128  ym1, ym2, ym0, 0x20
     vperm2i128  ym0, ym2, ym0, 0x31
     SWAP 0, 1
