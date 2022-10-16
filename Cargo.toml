@@ -3,6 +3,14 @@ name = "satd-asm"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "mylib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mybin"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -10,3 +18,10 @@ rand = "0.8.5"
 
 [build-dependencies]
 nasm-rs = "0.2.4"
+
+[dev-dependencies]
+criterion = "0.4.0"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

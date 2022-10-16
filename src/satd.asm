@@ -332,7 +332,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     HSUM 16, 16, 0, 1, eax
     RET
 .12bpc:
-    ; Make disassembly less confusing to read
+    ; this gives a nicer disassembly
     RESET_MM_PERMUTATION
 
     ; Load src rows
@@ -360,6 +360,10 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     pabsd       m1, m1
     paddd       m0, m1
     HSUM 32, 32, 0, 1, eax
+    RET
+
+INIT_YMM avx2
+cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     RET
 
 INIT_YMM avx2
