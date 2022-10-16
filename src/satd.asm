@@ -413,6 +413,7 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     psubw       xm2, [dstq + 2*dst_strideq]
     psubw       xm3, [dstq + dst_stride3q ]
 
+.10bpc_main:
     HADAMARD_4X4_PACKED 16, 32, 1
 
     pabsw   m0, m0
@@ -513,19 +514,15 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 
     ; combine m0&m4, m1&m5, ...
     REPX {pshufd x, x, q1032}, xm4, xm5, xm6, xm7
-
     por     xm0, xm4
     por     xm1, xm5
     por     xm2, xm6
     por     xm3, xm7
 
-    HADAMARD_4X4_PACKED 16, 32, 1
-
-    pabsw   m0, m0
-    pabsw   m1, m1
-    paddw   m0, m1
-    HSUM    16, 32, 0, 1, eax
-    RET
+    ; jump to HADAMARD_4X4_PACKED in 8x4 satd, this saves us some binary size
+    ; by deduplicating the shared code.
+    jmp mangle(private_prefix %+ _satd_8x4_16bpc %+ SUFFIX).10bpc_main
+    ; no return; we return in the other function.
 
 .12bpc:
     RESET_MM_PERMUTATION
