@@ -393,13 +393,13 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 ; but at that point probably just better to call the 2 functions differently anyway...
 
 INIT_YMM avx2
-cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
+cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
                                src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
 
-    ; cmp         bd
-    jmp .12bpc
+    cmp bdmaxd, (1 << 10) - 1
+    jne .12bpc
 
     ; Load src rows
     movu        xm0, [srcq + 0*src_strideq]
