@@ -548,8 +548,8 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     lea dstq, [dstq+4*dst_strideq]
 
     HADAMARD_4X4_PACKED 32, 32
-    ; transform coefficients are in m0,m1
-    ; swap them away for later use, since we need m0-3
+    ; transform coefficients are now in m0,m1
+    ; move them to m5,m6 for later use, since we need m0-3 free
     ; for the next transform
     SWAP 0, 5
     SWAP 1, 6
