@@ -14,7 +14,8 @@ extern "C" {
         src_stride: usize,
         dst: *const u16,
         dst_stride: usize,
-        bdmax: u32,
+        // bdmax: u32,
+        buf: &mut [i16; 32],
     ) -> u64;
 
     pub fn rav1e_satd_4x4_16bpc_avx2(

@@ -172,9 +172,7 @@ SECTION .text
     %endif
 %endmacro
 
-%macro HADAMARD_4X4_PACKED 3
-    %define DBG %3
-
+%macro HADAMARD_4X4_PACKED 2
     %define BIT_PRECISION %1
     ; Register size to use (in bytes)
     %define VEC_SIZE %2
@@ -196,13 +194,6 @@ SECTION .text
 
     ; Where each number represents an index of the
     ; original block of differences.
-
-%if DBG == 1
-    ; movu    [r4+0*16], xm0
-    ; movu    [r4+1*16], xm1
-    ; movu    [r4+2*16], xm2
-    ; movu    [r4+3*16], xm3
-%endif
 
     ; TODO possibly extract this out to a macro
     ; Pack rows 0,2 and 1,3 into m0 and m1
@@ -348,7 +339,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     psubw       xm2, [dstq + 2*dst_strideq]
     psubw       xm3, [dstq + dst_stride3q ]
 
-    HADAMARD_4X4_PACKED 16, 16, 0
+    HADAMARD_4X4_PACKED 16, 16
 
     ; Sum up absolute value of transform coefficients
     pabsw       xm0, xm0
@@ -378,7 +369,7 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     psubd       xm2, xm6
     psubd       xm3, xm7
 
-    HADAMARD_4X4_PACKED 32, 32, 0
+    HADAMARD_4X4_PACKED 32, 32
 
     ; Sum up absolute value of transform coefficients
     pabsd       m0, m0
@@ -414,7 +405,7 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     psubw       xm3, [dstq + dst_stride3q ]
 
 .10bpc_main:
-    HADAMARD_4X4_PACKED 16, 32, 1
+    HADAMARD_4X4_PACKED 16, 32
 
     pabsw   m0, m0
     pabsw   m1, m1
@@ -482,13 +473,13 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     RET
 
 INIT_YMM avx2
-cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
+cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
                                src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
 
-    cmp bdmaxd, (1 << 10) - 1
-    jne .12bpc
+    ; cmp bdmaxd, (1 << 10) - 1
+    ; jne .12bpc
 
     ; Load first 4 src rows
     movq        xm0, [srcq + 0*src_strideq]
@@ -519,10 +510,26 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     por     xm2, xm6
     por     xm3, xm7
 
+    movu    [bufq+0*16], xm0
+    movu    [bufq+1*16], xm1
+    movu    [bufq+2*16], xm2
+    movu    [bufq+3*16], xm3
+
+    ; RET
+
     ; jump to HADAMARD_4X4_PACKED in 8x4 satd, this saves us some binary size
     ; by deduplicating the shared code.
-    jmp mangle(private_prefix %+ _satd_8x4_16bpc %+ SUFFIX).10bpc_main
+    ; jmp mangle(private_prefix %+ _satd_8x4_16bpc %+ SUFFIX).10bpc_main
     ; no return; we return in the other function.
+
+    HADAMARD_4X4_PACKED 16, 32
+
+    pabsw   m0, m0
+    pabsw   m1, m1
+    paddw   m0, m1
+    HSUM    16, 32, 0, 1, eax
+
+    RET
 
 .12bpc:
     RESET_MM_PERMUTATION
