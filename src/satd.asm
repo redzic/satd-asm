@@ -512,25 +512,24 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
 
     ; sequence uses m0-m2
 
-    ; each of these instructions only uses 3 sets of registers
-    BUTTERFLY 32, 32, 0
-    INTERLEAVE 32, 32, 0
-    BUTTERFLY 32, 32, 0
-    INTERLEAVE_PAIRS 32, 32, 0
-    BUTTERFLY 32, 32, 0
-    INTERLEAVE 32, 32, 0
-    BUTTERFLY 32, 32, 0
-
     ; need to get data back into m0-3
     vinserti128 ym3, ym6, xm8, 1
     vinserti128 ym4, ym7, xm9, 1
 
+    ; each of these instructions only uses 3 sets of registers
+    BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
+    INTERLEAVE 32, 32, 0
     INTERLEAVE 32, 32, 1
+    BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
+    INTERLEAVE_PAIRS 32, 32, 0
     INTERLEAVE_PAIRS 32, 32, 1
+    BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
+    INTERLEAVE 32, 32, 0
     INTERLEAVE 32, 32, 1
+    BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
 
     ; Sum up absolute value of transform coefficients
