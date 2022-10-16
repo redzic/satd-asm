@@ -463,10 +463,14 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     vinserti128     ym0, ym0, xm2, 1
     vinserti128     ym1, ym1, xm3, 1
 
+    ; Swap so m3,m4 are used as inputs.
     SWAP 5, 3
     SWAP 6, 4
 
-    ; each of these instructions only uses 3 sets of registers
+    ; instead of using HADAMARD_4X4_PACKED twice, we interleave
+    ; 2 transforms operating over different registers for more
+    ; opportunity for instruction level parallelism.
+
     BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
     INTERLEAVE 32, 32, 0
@@ -482,9 +486,7 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
 
-    ; sum(abs(coeffs))
-    ; m0,m1
-    ; m3,m4
+    ; horizontally sum absolute value of coefficients
     pabsd       m0, m0
     pabsd       m1, m1
     pabsd       m3, m3
