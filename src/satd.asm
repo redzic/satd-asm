@@ -33,9 +33,17 @@ SECTION .text
 ;
 ; m0    [0+8][1+9][2+10][3+11] [4+12][5+13][6+14][7+15]
 ; m1    [0-8][1-9][2-10][3-11] [4-12][5-13][6-14][7-15]
-%macro BUTTERFLY 2
+%macro BUTTERFLY 3
     %define BIT_PRECISION %1
     %define VEC_SIZE %2
+    ; use alternate registers 3,4,5
+    %define USE_ALT %3
+
+    %if USE_ALT == 1
+        SWAP 3,0
+        SWAP 4,1
+        SWAP 5,2
+    %endif
 
     %if VEC_SIZE == 32
         %define V ym
@@ -58,6 +66,12 @@ SECTION .text
     %endif
 
     SWAP 2, 1, 0
+
+    %if USE_ALT == 1
+        SWAP 3,0
+        SWAP 4,1
+        SWAP 5,2
+    %endif
 %endmacro
 
 ; Interleave packed rows together (in m0 and m1).
@@ -75,10 +89,16 @@ SECTION .text
 ;
 ; m0    0  8  1  9   2 10  3 11
 ; m1    4 12  5 13   6 14  7 15
-%macro INTERLEAVE 2
-
+%macro INTERLEAVE 3
     %define BIT_PRECISION %1
     %define VEC_SIZE %2
+    %define USE_ALT %3
+
+    %if USE_ALT == 1
+        SWAP 3,0
+        SWAP 4,1
+        SWAP 5,2
+    %endif
 
     ; TODO make macro out of this block?
     ; would deduplicate some code
@@ -105,13 +125,26 @@ SECTION .text
     %else
         %error Incorrect precision specified (16 or 32 expected)
     %endif
+
+    %if USE_ALT == 1
+        SWAP 3,0
+        SWAP 4,1
+        SWAP 5,2
+    %endif
 %endmacro
 
 ; Interleave pairs of 2 elements (in m0 and m1)
 ; m2 should contain a free register.
-%macro INTERLEAVE_PAIRS 2
+%macro INTERLEAVE_PAIRS 3
     %define BIT_PRECISION %1
     %define VEC_SIZE %2
+    %define USE_ALT %3
+
+    %if USE_ALT == 1
+        SWAP 3,0
+        SWAP 4,1
+        SWAP 5,2
+    %endif
 
     %if VEC_SIZE == 16
         %define V xm
@@ -131,6 +164,12 @@ SECTION .text
         %error Incorrect precision specified (16 or 32 expected)
     %endif
     SWAP 2, 1, 0
+
+    %if USE_ALT == 1
+        SWAP 3,0
+        SWAP 4,1
+        SWAP 5,2
+    %endif
 %endmacro
 
 ; %macro PACK_ROWS 2
@@ -216,17 +255,17 @@ SECTION .text
 ; %endif
 
 
-    BUTTERFLY %1, %2
+    BUTTERFLY %1, %2, 0
 
     ; m0    [0+4][1+5][2+6][3+7] [8+12][9+13][10+14][11+15]
     ; m1    [0-4][1-5][2-6][3-7] [8-12][9-13][10-14][11-15]
 
-    INTERLEAVE %1, %2
+    INTERLEAVE %1, %2, 0
 
     ; m0    [ 0+4][ 0-4][ 1+5][ 1-5] [2 + 6][2 - 6][3 + 7][3 - 7]
     ; m1    [8+12][8-12][9+13][9-13] [10+14][10-14][11+15][11-15]
 
-    BUTTERFLY %1, %2
+    BUTTERFLY %1, %2, 0
 
     ; m0    [0+4+8+12][0-4+8-12][1+5+9+13][1-5+9-13] [2+6+10+14][2-6+10-14][3+7+11+15][3-7+11-15]
     ; m1    [0+4-8-12][0-4-8+12][1+5-9-13][1-5-9+13] [2+6-10-14][2-6-10+14][3+7-11-15][3-7-11+15]
@@ -235,7 +274,7 @@ SECTION .text
     ; [0+1+2+3][0-1+2-3][0+1-2-3][0-1-2+3]
     ; For the vertical transform, these are packed into a new column.
 
-    INTERLEAVE_PAIRS %1, %2
+    INTERLEAVE_PAIRS %1, %2, 0
 
     ;                p0         p1         p2         p3
     ; m0    [0+4+ 8+12][0-4+ 8-12][0+4- 8-12][0-4- 8+12] [1+5+ 9+13][1-5+ 9-13][1+5- 9-13][1-5- 9+13]
@@ -250,9 +289,9 @@ SECTION .text
 
     ; Horizontal transform; since the output is transposed from the original order,
     ; we can do the same steps as the vertical transform and the result will be the same.
-    BUTTERFLY %1, %2
-    INTERLEAVE %1, %2
-    BUTTERFLY %1, %2
+    BUTTERFLY %1, %2, 0
+    INTERLEAVE %1, %2, 0
+    BUTTERFLY %1, %2, 0
 
     ; Finished horizontal transform except for the last step (interleaving pairs),
     ; which we skip, because after this we add up the absolute value of the
@@ -419,10 +458,18 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     psubd       m2, m6
     psubd       m3, m7
 
+    ; is it possible to avoid some of these extracts?
+    ; later we do some vinserti128s, so I'm thinking ...
     vextracti128    xm6, m0, 1
     vextracti128    xm7, m1, 1
     vextracti128    xm8, m2, 1
     vextracti128    xm9, m3, 1
+
+    ; I think we can reduce it to 2 vextract + 2 vmovdqa
+    ; instead of 4 vextract + 2 vinsert...
+
+    ; first interleave everything,
+    ; then try to avoid the other stuff
 
     ; thank god we have 16 registers bruh
 
@@ -441,24 +488,54 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
 
     ; expects rows 0-3 to be in m0-3
     ; could just use SWAP if we want to use different registers
-    HADAMARD_4X4_PACKED 32, 32, 0
+    ; HADAMARD_4X4_PACKED 32, 32, 0
 
-    ; should we interleave these 2 for better ILP?
-    ; yeah, I think we should actually
+    ; ; should we interleave these 2 for better ILP?
+    ; ; yeah, I think we should actually
 
-    ; m0,m1
+    ; ; m0,m1
+
+    ; SWAP  6, 0
+    ; SWAP  7, 1
+    ; SWAP  8, 2
+    ; SWAP  9, 3
+
+    ; HADAMARD_4X4_PACKED 32, 32, 0
+
+    ; SWAP  6, 0
+    ; SWAP  7, 1
+    ; SWAP  8, 2
+    ; SWAP  9, 3
+
+    vinserti128 ym0, ym0, xm2, 1
+    vinserti128 ym1, ym1, xm3, 1
+
+    ; sequence uses m0-m2
+
+    BUTTERFLY 32, 32, 0
+    INTERLEAVE 32, 32, 0
+    BUTTERFLY 32, 32, 0
+    INTERLEAVE_PAIRS 32, 32, 0
+    BUTTERFLY 32, 32, 0
+    INTERLEAVE 32, 32, 0
+    BUTTERFLY 32, 32, 0
 
     SWAP  6, 0
     SWAP  7, 1
     SWAP  8, 2
     SWAP  9, 3
 
-    HADAMARD_4X4_PACKED 32, 32, 0
+    vinserti128 ym0, ym0, xm2, 1
+    vinserti128 ym1, ym1, xm3, 1
 
-    SWAP  6, 0
-    SWAP  7, 1
-    SWAP  8, 2
-    SWAP  9, 3
+    BUTTERFLY 32, 32, 0
+    INTERLEAVE 32, 32, 0
+    BUTTERFLY 32, 32, 0
+    INTERLEAVE_PAIRS 32, 32, 0
+    BUTTERFLY 32, 32, 0
+    INTERLEAVE 32, 32, 0
+    BUTTERFLY 32, 32, 0
+
 
     ; Sum up absolute value of transform coefficients
     pabsd       m0, m0
