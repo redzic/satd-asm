@@ -419,10 +419,10 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     psubd       m2, m6
     psubd       m3, m7
 
-    vextracti128     xm8, m0, 1
-    vextracti128     xm9, m1, 1
-    vextracti128    xm10, m2, 1
-    vextracti128    xm11, m3, 1
+    vextracti128    xm6, m0, 1
+    vextracti128    xm7, m1, 1
+    vextracti128    xm8, m2, 1
+    vextracti128    xm9, m3, 1
 
     ; thank god we have 16 registers bruh
 
@@ -448,29 +448,27 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
 
     ; m0,m1
 
-    SWAP  8, 0
-    SWAP  9, 1
-    SWAP 10, 2
-    SWAP 11, 3
+    SWAP  6, 0
+    SWAP  7, 1
+    SWAP  8, 2
+    SWAP  9, 3
 
     HADAMARD_4X4_PACKED 32, 32, 0
 
-    ; horizontally sum actual ymm0, not "m0" which refers to ymm0
-    ; instructions should take fewer bytes that way
-    SWAP  8, 0
-    SWAP  9, 1
-    SWAP 10, 2
-    SWAP 11, 3
+    SWAP  6, 0
+    SWAP  7, 1
+    SWAP  8, 2
+    SWAP  9, 3
 
     ; Sum up absolute value of transform coefficients
     pabsd       m0, m0
     pabsd       m1, m1
-    pabsd       m8, m8
-    pabsd       m9, m9
+    pabsd       m6, m6
+    pabsd       m7, m7
 
     paddd       m0, m1
-    paddd       m8, m9
-    paddd       m0, m8
+    paddd       m6, m7
+    paddd       m0, m6
 
     HSUM 32, 32, 0, 1, eax
 
