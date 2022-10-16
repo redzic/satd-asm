@@ -89,6 +89,8 @@ mod tests {
 
         let mut rng = rand::thread_rng();
 
+        let mut x = [0; 32];
+
         // TODO test 12 bit
         for bd in [10, 10] {
             for _ in 0..12000 {
@@ -101,7 +103,8 @@ mod tests {
                         stride,
                         dst.as_ptr(),
                         stride,
-                        (1 << bd) - 1,
+                        // (1 << bd) - 1,
+                        &mut x,
                     )
                 };
                 let satd_rust = satd4x8_rust(&src, &dst);
