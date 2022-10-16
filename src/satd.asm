@@ -458,63 +458,13 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     psubd       m2, m6
     psubd       m3, m7
 
-    ; is it possible to avoid some of these extracts?
-    ; later we do some vinserti128s, so I'm thinking ...
-    vextracti128    xm6, m0, 1
-    vextracti128    xm7, m1, 1
-    vextracti128    xm8, m2, 1
-    vextracti128    xm9, m3, 1
+    vperm2i128      ym5, m0, m2, 0x31
+    vperm2i128      ym6, m1, m3, 0x31
+    vinserti128     ym0, ym0, xm2, 1
+    vinserti128     ym1, ym1, xm3, 1
 
-    ; I think we can reduce it to 2 vextract + 2 vmovdqa
-    ; instead of 4 vextract + 2 vinsert...
-
-    ; first interleave everything,
-    ; then try to avoid the other stuff
-
-    ; thank god we have 16 registers bruh
-
-    ; if we want to call an asm function ourselves, the function we are calling
-    ; should be returning with ret instead of RET
-    ; since that will just directly jump back to where we are
-
-    ; might be better to just unroll it though at this point,
-    ; so we don't have to deal with any more garbage
-
-    ; maybe just call 4x4 twice?
-    ; but without the prelude and stuff
-
-    ; bruh... maybe read on IRC how lynne do the prologueless functions
-    ; or whatever
-
-    ; expects rows 0-3 to be in m0-3
-    ; could just use SWAP if we want to use different registers
-    ; HADAMARD_4X4_PACKED 32, 32, 0
-
-    ; ; should we interleave these 2 for better ILP?
-    ; ; yeah, I think we should actually
-
-    ; ; m0,m1
-
-    ; SWAP  6, 0
-    ; SWAP  7, 1
-    ; SWAP  8, 2
-    ; SWAP  9, 3
-
-    ; HADAMARD_4X4_PACKED 32, 32, 0
-
-    ; SWAP  6, 0
-    ; SWAP  7, 1
-    ; SWAP  8, 2
-    ; SWAP  9, 3
-
-    vinserti128 ym0, ym0, xm2, 1
-    vinserti128 ym1, ym1, xm3, 1
-
-    ; sequence uses m0-m2
-
-    ; need to get data back into m0-3
-    vinserti128 ym3, ym6, xm8, 1
-    vinserti128 ym4, ym7, xm9, 1
+    SWAP 5, 3
+    SWAP 6, 4
 
     ; each of these instructions only uses 3 sets of registers
     BUTTERFLY 32, 32, 0
@@ -532,7 +482,9 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     BUTTERFLY 32, 32, 0
     BUTTERFLY 32, 32, 1
 
-    ; Sum up absolute value of transform coefficients
+    ; sum(abs(coeffs))
+    ; m0,m1
+    ; m3,m4
     pabsd       m0, m0
     pabsd       m1, m1
     pabsd       m3, m3
