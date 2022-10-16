@@ -17,7 +17,7 @@ fn main() {
 
     unsafe {
         let satd =
-            rav1e_satd_8x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 10) - 1);
+            rav1e_satd_8x4_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 12) - 1);
 
         let satd_rust = satd8x4_rust(&src, &dst);
 
@@ -45,7 +45,7 @@ mod tests {
         let mut rng = rand::thread_rng();
 
         // TODO test 12 bit
-        for bd in [10, 10] {
+        for bd in [10, 12] {
             for _ in 0..12000 {
                 src.fill_with(|| rng.gen_range(0..=(1 << bd) - 1));
                 dst.fill_with(|| rng.gen_range(0..=(1 << bd) - 1));

@@ -12,7 +12,7 @@
 
 SECTION_RODATA 32
 
-align 16
+align 32
 pw_1x16:   times 16 dw 1
 
 SECTION .text
@@ -77,8 +77,8 @@ SECTION .text
 ; m1    4 12  5 13   6 14  7 15
 %macro INTERLEAVE 2
 
-%define BIT_PRECISION %1
-%define VEC_SIZE %2
+    %define BIT_PRECISION %1
+    %define VEC_SIZE %2
 
     ; TODO make macro out of this block?
     ; would deduplicate some code
@@ -139,6 +139,9 @@ SECTION .text
 ; %endmacro
 
 %macro HADAMARD_4X4_PACKED 3
+
+    ; with 32, 32, 0
+    ; it takes in 4 xmm registers
 
     %define DBG %3
 
@@ -245,15 +248,15 @@ SECTION .text
     ; p2  q2  r2  s2
     ; p3  q3  r3  s3
 
-    ; Horizontal transform; since the output is flipped from the original order,
+    ; Horizontal transform; since the output is transposed from the original order,
     ; we can do the same steps as the vertical transform and the result will be the same.
     BUTTERFLY %1, %2
     INTERLEAVE %1, %2
     BUTTERFLY %1, %2
 
     ; Finished horizontal transform except for the last step (interleaving pairs),
-    ; which we skip since the order we sum up the transform coefficients does not
-    ; matter.
+    ; which we skip, because after this we add up the absolute value of the
+    ; coefficients, which is a commutative operation (order does not matter).
 %endmacro
 
 ; Horizontal sum of mm register
@@ -362,15 +365,19 @@ cglobal satd_4x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     HSUM 32, 32, 0, 1, eax
     RET
 
-INIT_YMM avx2
-cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
-    RET
+; could do evil hacks like checking if msb is set
+; and using that for 10/12 bit
+
+; but at that point probably just better to call the 2 functions differently anyway...
 
 INIT_YMM avx2
 cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
                                src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
+
+    ; cmp         bd
+    jmp .12bpc
 
     ; Load src rows
     movu        xm0, [srcq + 0*src_strideq]
@@ -412,11 +419,60 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     psubd       m2, m6
     psubd       m3, m7
 
-    ; 4 coefficients is 128 bits
-    vinserti128 m0, m0, xm2, 1
-    vinserti128 m1, m1, xm3, 1
-    ; vinserti128 m2, m0, xm2, 1
-    ; vinserti128 m3, m1, xm3, 1
+    vextracti128     xm8, m0, 1
+    vextracti128     xm9, m1, 1
+    vextracti128    xm10, m2, 1
+    vextracti128    xm11, m3, 1
+
+    ; thank god we have 16 registers bruh
+
+    ; if we want to call an asm function ourselves, the function we are calling
+    ; should be returning with ret instead of RET
+    ; since that will just directly jump back to where we are
+
+    ; might be better to just unroll it though at this point,
+    ; so we don't have to deal with any more garbage
+
+    ; maybe just call 4x4 twice?
+    ; but without the prelude and stuff
+
+    ; bruh... maybe read on IRC how lynne do the prologueless functions
+    ; or whatever
+
+    ; expects rows 0-3 to be in m0-3
+    ; could just use SWAP if we want to use different registers
+    HADAMARD_4X4_PACKED 32, 32, 0
+
+    ; should we interleave these 2 for better ILP?
+    ; yeah, I think we should actually
+
+    ; m0,m1
+
+    SWAP  8, 0
+    SWAP  9, 1
+    SWAP 10, 2
+    SWAP 11, 3
+
+    HADAMARD_4X4_PACKED 32, 32, 0
+
+    ; horizontally sum actual ymm0, not "m0" which refers to ymm0
+    ; instructions should take fewer bytes that way
+    SWAP  8, 0
+    SWAP  9, 1
+    SWAP 10, 2
+    SWAP 11, 3
+
+    ; Sum up absolute value of transform coefficients
+    pabsd       m0, m0
+    pabsd       m1, m1
+    pabsd       m8, m8
+    pabsd       m9, m9
+
+    paddd       m0, m1
+    paddd       m8, m9
+    paddd       m0, m8
+
+    HSUM 32, 32, 0, 1, eax
 
     RET
 
