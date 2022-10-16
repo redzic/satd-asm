@@ -507,7 +507,7 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     ; swaps 2 halves of 64 bits
     REPX {pshufd x, x, q1032}, xm4, xm5, xm6, xm7
 
-    ; using vpblendd here saves an some instructions compared to
+    ; using vpblendd here saves some instructions compared to
     ; using and + or. an alternative is to movq every src and dst
     ; memory address and use psubw on registers only, but this
     ; approach seems better.
