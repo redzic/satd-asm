@@ -99,8 +99,6 @@ pub fn satd4x8_rust(src: &[u16; 32], dst: &[u16; 32]) -> u64 {
         buf[i] = src[i] as i32 - dst[i] as i32;
     }
 
-    println!("subtracted buf: {buf:?}");
-
     unsafe { satd::<{ 4 * 8 }, 4, 8>(&mut buf) }
 }
 

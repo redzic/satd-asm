@@ -473,36 +473,13 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     RET
 
 INIT_YMM avx2
-cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
+cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
                                src_stride3, dst_stride3
     lea         src_stride3q, [3*src_strideq]
     lea         dst_stride3q, [3*dst_strideq]
 
-    ; cmp bdmaxd, (1 << 10) - 1
-    ; jne .12bpc
-
-    ; Load first 4 src rows
-    ; movq        xm0, [srcq + 0*src_strideq]
-    ; movq        xm1, [srcq + 1*src_strideq]
-    ; movq        xm2, [srcq + 2*src_strideq]
-    ; movq        xm3, [srcq + src_stride3q ]
-    ; lea        srcq, [srcq + 4*src_strideq]
-    ; movq        xm4, [srcq + 0*src_strideq]
-    ; movq        xm5, [srcq + 1*src_strideq]
-    ; movq        xm6, [srcq + 2*src_strideq]
-    ; movq        xm7, [srcq + src_stride3q ]
-
-    ; ; src -= dst
-    ; psubw       xm0, [dstq + 0*dst_strideq]
-    ; psubw       xm1, [dstq + 1*dst_strideq]
-    ; psubw       xm2, [dstq + 2*dst_strideq]
-    ; psubw       xm3, [dstq + dst_stride3q ]
-    ; lea        dstq, [dstq + 4*dst_strideq]
-    ; psubw       xm4, [dstq + 0*dst_strideq]
-    ; psubw       xm5, [dstq + 1*dst_strideq]
-    ; psubw       xm6, [dstq + 2*dst_strideq]
-    ; psubw       xm7, [dstq + dst_stride3q ]
-
+    cmp bdmaxd, (1 << 10) - 1
+    jne .12bpc
 
     movq        xm0, [srcq + 0*src_strideq]
     movq        xm1, [srcq + 1*src_strideq]
@@ -542,26 +519,10 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     por     xm2, xm6
     por     xm3, xm7
 
-    ; movu    [bufq+0*16], xm0
-    ; movu    [bufq+1*16], xm1
-    ; movu    [bufq+2*16], xm2
-    ; movu    [bufq+3*16], xm3
-
-    ; RET
-
     ; jump to HADAMARD_4X4_PACKED in 8x4 satd, this saves us some binary size
     ; by deduplicating the shared code.
-    ; jmp mangle(private_prefix %+ _satd_8x4_16bpc %+ SUFFIX).10bpc_main
+    jmp mangle(private_prefix %+ _satd_8x4_16bpc %+ SUFFIX).10bpc_main
     ; no return; we return in the other function.
-
-    HADAMARD_4X4_PACKED 16, 32
-
-    pabsw   m0, m0
-    pabsw   m1, m1
-    paddw   m0, m1
-    HSUM    16, 32, 0, 1, eax
-
-    RET
 
 .12bpc:
     RESET_MM_PERMUTATION

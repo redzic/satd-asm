@@ -12,28 +12,17 @@ fn main() {
     let mut dst = [0; 32];
     let mut buf = [0; 32];
 
-    let mut rng = rand::thread_rng();
-
-    // src.fill_with(|| rng.gen_range(0..=1023));
-    // dst.fill_with(|| rng.gen_range(0..=1023));
-
-    // println!("{src:?}");
-
     for i in 0..32 {
-        // dst[i] = i as u16;
         dst[i] = i as u16;
     }
 
     let stride = 4 * 2;
 
     unsafe {
-        let satd = rav1e_satd_4x8_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, &mut buf);
-        // rav1e_satd_4x8_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 10) - 1);
+        let satd =
+            rav1e_satd_4x8_16bpc_avx2(src.as_ptr(), stride, dst.as_ptr(), stride, (1 << 10) - 1);
 
         let satd_rust = satd4x8_rust(&src, &dst);
-
-        // println!("{satd:b}");
-        // println!("{:b}", 736);
 
         println!("buf: {buf:?}");
         println!(" satd_asm: {satd}");
@@ -103,8 +92,7 @@ mod tests {
                         stride,
                         dst.as_ptr(),
                         stride,
-                        // (1 << bd) - 1,
-                        &mut x,
+                        (1 << bd) - 1,
                     )
                 };
                 let satd_rust = satd4x8_rust(&src, &dst);
