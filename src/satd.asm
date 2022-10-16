@@ -523,7 +523,67 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 
 .12bpc:
     RESET_MM_PERMUTATION
-    ; not implemented yet :(
 
-    xor eax, eax
+    ; we can't interleave rows (4px*4 bytes per coefficient*4 rows
+    ; per register = 64 bytes, which exceeds our register size of 32 bytes),
+    ; so just do each 4x4 block separately
+
+    pmovzxwd    xm0, [srcq + 0*src_strideq]
+    pmovzxwd    xm1, [srcq + 1*src_strideq]
+    pmovzxwd    xm2, [srcq + 2*src_strideq]
+    pmovzxwd    xm3, [srcq + src_stride3q ]
+
+    pmovzxwd    xm4, [dstq + 0*dst_strideq]
+    pmovzxwd    xm5, [dstq + 1*dst_strideq]
+    pmovzxwd    xm6, [dstq + 2*dst_strideq]
+    pmovzxwd    xm7, [dstq + dst_stride3q ]
+
+    ; src -= dst
+    psubd       m0, m4
+    psubd       m1, m5
+    psubd       m2, m6
+    psubd       m3, m7
+
+    lea srcq, [srcq+4*src_strideq]
+    lea dstq, [dstq+4*dst_strideq]
+
+    HADAMARD_4X4_PACKED 32, 32
+    ; transform coefficients are in m0,m1
+    ; swap them away for later use, since we need m0-3
+    ; for the next transform
+    SWAP 0, 5
+    SWAP 1, 6
+
+    HADAMARD_4X4_PACKED 32, 32
+
+    ; interleave subtraction this time to save on registers
+    pmovzxwd    xm0, [srcq + 0*src_strideq]
+    pmovzxwd    xm1, [dstq + 0*dst_strideq]
+    psubd       xm0, xm1
+
+    pmovzxwd    xm1, [srcq + 1*src_strideq]
+    pmovzxwd    xm2, [dstq + 1*dst_strideq]
+    psubd       xm1, xm2
+
+    pmovzxwd    xm2, [srcq + 2*src_strideq]
+    pmovzxwd    xm3, [dstq + 2*dst_strideq]
+    psubd       xm2, xm3
+
+    pmovzxwd    xm3, [srcq + src_stride3q ]
+    pmovzxwd    xm4, [dstq + dst_stride3q ]
+    psubd       xm3, xm4
+
+    HADAMARD_4X4_PACKED 32, 32
+
+    ; old transform coefficients are in m5,m6
+    pabsd   m0, m0
+    pabsd   m1, m1
+    pabsd   m5, m5
+    pabsd   m6, m6
+
+    paddd   m0, m1
+    paddd   m5, m6
+    paddd   m0, m5
+
+    HSUM 32, 32, 0, 1, eax
     RET
