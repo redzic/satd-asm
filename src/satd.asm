@@ -458,14 +458,14 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     psubd       m2, m6
     psubd       m3, m7
 
-    vperm2i128      ym5, m0, m2, 0x31
-    vperm2i128      ym6, m1, m3, 0x31
+    vperm2i128      ym4, m0, m2, 0x31
+    vperm2i128      ym5, m1, m3, 0x31
     vinserti128     ym0, ym0, xm2, 1
     vinserti128     ym1, ym1, xm3, 1
 
     ; Swap so m3,m4 are used as inputs.
-    SWAP 5, 3
-    SWAP 6, 4
+    SWAP 4, 3
+    SWAP 5, 4
 
     ; instead of using HADAMARD_4X4_PACKED twice, we interleave
     ; 2 transforms operating over different registers for more
