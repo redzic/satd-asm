@@ -172,16 +172,7 @@ SECTION .text
     %endif
 %endmacro
 
-; %macro PACK_ROWS 2
-;     %define BIT_PRECISION %1
-;     %define VEC_SIZE %2
-; %endmacro
-
 %macro HADAMARD_4X4_PACKED 3
-
-    ; with 32, 32, 0
-    ; it takes in 4 xmm registers
-
     %define DBG %3
 
     %define BIT_PRECISION %1
@@ -240,20 +231,12 @@ SECTION .text
     ; Now that we've packed rows 0-2 and 1-3 together,
     ; this is our permutation:
 
-    ; For a 8x4 transform, this pattern is extended for each register,
-    ; but for the second block, and thus, all comments also apply to
-    ; the upper 128-bits for the 8x4 transform.
-
     ; m0    0 1 2 3   8  9 10 11
     ; m1    4 5 6 7  12 13 14 15
 
-; %if DBG == 1
-;     movu    [r4+0*32], m0
-;     movu    [r4+1*32], m1
-;     ; movu    [r4+0*32], m4
-;     ; movu    [r4+1*32], m5
-; %endif
-
+    ; For a 8x4 transform (with 16-bit coefficients), this pattern is
+    ; extended for each 128-bit half but for the second block, and thus
+    ;  all comments also apply to the upper 128-bits for the 8x4 transform.
 
     BUTTERFLY %1, %2, 0
 
