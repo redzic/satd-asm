@@ -92,6 +92,16 @@ pub fn satd8x4_rust(src: &[u16; 32], dst: &[u16; 32]) -> u64 {
     unsafe { satd::<{ 8 * 4 }, 8, 4>(&mut buf) }
 }
 
+pub fn satd4x8_rust(src: &[u16; 32], dst: &[u16; 32]) -> u64 {
+    let mut buf = [0; 32];
+
+    for i in 0..32 {
+        buf[i] = src[i] as i32 - dst[i] as i32;
+    }
+
+    unsafe { satd::<{ 4 * 8 }, 4, 8>(&mut buf) }
+}
+
 pub fn satd4x4_rust(src: &[u16; 16], dst: &[u16; 16]) -> u64 {
     let mut buf = [0; 16];
 

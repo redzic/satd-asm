@@ -418,7 +418,6 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     pabsw   m0, m0
     pabsw   m1, m1
     paddw   m0, m1
-    ; TODO fix all of this
     HSUM    16, 32, 0, 1, eax
     RET
 .12bpc:
@@ -435,16 +434,15 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     pmovzxwd    m7, [dstq + dst_stride3q ]
 
     ; src -= dst
-    ; each reg is 8x 32 bits (256 bits)
     psubd       m0, m4
     psubd       m1, m5
     psubd       m2, m6
     psubd       m3, m7
 
-    vperm2i128      ym4, m0, m2, 0x31
-    vperm2i128      ym5, m1, m3, 0x31
-    vinserti128     ym0, ym0, xm2, 1
-    vinserti128     ym1, ym1, xm3, 1
+    vperm2i128      m4, m0, m2, 0x31
+    vperm2i128      m5, m1, m3, 0x31
+    vinserti128     m0, m0, xm2, 1
+    vinserti128     m1, m1, xm3, 1
 
     ; Swap so m3,m4 are used as inputs.
     SWAP 3, 4, 5
@@ -482,8 +480,56 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 
     RET
 
-; INIT_YMM avx2
-; cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
-;                                src_stride3, dst_stride3
-;     xor eax, eax
-;     RET
+INIT_YMM avx2
+cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
+                               src_stride3, dst_stride3
+    lea         src_stride3q, [3*src_strideq]
+    lea         dst_stride3q, [3*dst_strideq]
+
+    cmp bdmaxd, (1 << 10) - 1
+    jne .12bpc
+
+    ; Load first 4 src rows
+    movq        xm0, [srcq + 0*src_strideq]
+    movq        xm1, [srcq + 1*src_strideq]
+    movq        xm2, [srcq + 2*src_strideq]
+    movq        xm3, [srcq + src_stride3q ]
+    lea        srcq, [srcq + 4*src_strideq]
+    movq        xm4, [srcq + 0*src_strideq]
+    movq        xm5, [srcq + 1*src_strideq]
+    movq        xm6, [srcq + 2*src_strideq]
+    movq        xm7, [srcq + src_stride3q ]
+
+    ; src -= dst
+    psubw       xm0, [dstq + 0*dst_strideq]
+    psubw       xm1, [dstq + 1*dst_strideq]
+    psubw       xm2, [dstq + 2*dst_strideq]
+    psubw       xm3, [dstq + dst_stride3q ]
+    lea        dstq, [dstq + 4*dst_strideq]
+    psubw       xm4, [dstq + 0*dst_strideq]
+    psubw       xm5, [dstq + 1*dst_strideq]
+    psubw       xm6, [dstq + 2*dst_strideq]
+    psubw       xm7, [dstq + dst_stride3q ]
+
+    ; combine m0&m4, m1&m5, ...
+    REPX {pshufd x, x, q1032}, xm4, xm5, xm6, xm7
+
+    por     xm0, xm4
+    por     xm1, xm5
+    por     xm2, xm6
+    por     xm3, xm7
+
+    HADAMARD_4X4_PACKED 16, 32, 1
+
+    pabsw   m0, m0
+    pabsw   m1, m1
+    paddw   m0, m1
+    HSUM    16, 32, 0, 1, eax
+    RET
+
+.12bpc:
+    RESET_MM_PERMUTATION
+    ; not implemented yet :(
+
+    xor eax, eax
+    RET
