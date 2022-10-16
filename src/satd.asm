@@ -17,8 +17,6 @@ pw_1x16:   times 16 dw 1
 
 SECTION .text
 
-; <num args>, <GPRs>, <num X/Y/ZMM regs used>
-
 ; Add and subtract registers
 ;
 ; Takes m0 and m1 as both input and output.
@@ -57,8 +55,6 @@ SECTION .text
         paddw       V%+ 2, V%+ 0, V%+ 1
         psubw       V%+ 0, V%+ 1
     %elif BIT_PRECISION == 32
-        ; for 32-bit, we cannot do 2 transforms at the same time
-        ; since we don't have 512-bit registers in AVX2
         paddd       ym2, ym0, ym1
         psubd       ym0, ym1
     %else
@@ -100,8 +96,6 @@ SECTION .text
         SWAP 5,2
     %endif
 
-    ; TODO make macro out of this block?
-    ; would deduplicate some code
     %if VEC_SIZE == 16
         %define V xm
     %elif VEC_SIZE == 32
@@ -458,7 +452,6 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     BUTTERFLY           32, 32, 0
     BUTTERFLY           32, 32, 1
 
-    ; horizontally sum absolute value of coefficients
     pabsd       m0, m0
     pabsd       m1, m1
     pabsd       m3, m3
