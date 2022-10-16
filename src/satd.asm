@@ -556,7 +556,7 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
 
     HADAMARD_4X4_PACKED 32, 32
 
-    ; interleave subtraction this time to save on registers
+    ; interleave subtraction this time to save registers
     pmovzxwd    xm0, [srcq + 0*src_strideq]
     pmovzxwd    xm1, [dstq + 0*dst_strideq]
     psubd       xm0, xm1
