@@ -12,6 +12,10 @@ fn main() {
     let mut dst = [0; 32];
     let mut buf = [0; 32];
 
+    let mut rng = rand::thread_rng();
+
+    src.fill_with(|| rng.gen_range(0..=1023));
+
     for i in 0..32 {
         dst[i] = i as u16;
     }

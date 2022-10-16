@@ -485,39 +485,36 @@ cglobal satd_4x8_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, bdmax, \
     movq        xm1, [srcq + 1*src_strideq]
     movq        xm2, [srcq + 2*src_strideq]
     movq        xm3, [srcq + src_stride3q ]
-    movq        xm4, [dstq + 0*dst_strideq]
-    movq        xm5, [dstq + 1*dst_strideq]
-    movq        xm6, [dstq + 2*dst_strideq]
-    movq        xm7, [dstq + dst_stride3q ]
-
-    psubw       xm0, xm4
-    psubw       xm1, xm5
-    psubw       xm2, xm6
-    psubw       xm3, xm7
-
     lea        srcq, [srcq + 4*src_strideq]
+    movq        xm4, [srcq + 0*src_strideq]
+    movq        xm5, [srcq + 1*src_strideq]
+    movq        xm6, [srcq + 2*src_strideq]
+    movq        xm7, [srcq + src_stride3q ]
+
+    ; this loads past the number of elements we are technically supposed
+    ; to read, however this should still be safe, since as long at least 1
+    ; valid element is in the memory address, we are fine
+    psubw       xm0, [dstq + 0*dst_strideq]
+    psubw       xm1, [dstq + 1*dst_strideq]
+    psubw       xm2, [dstq + 2*dst_strideq]
+    psubw       xm3, [dstq + dst_stride3q ]
     lea        dstq, [dstq + 4*dst_strideq]
+    psubw       xm4, [dstq + 0*dst_strideq]
+    psubw       xm5, [dstq + 1*dst_strideq]
+    psubw       xm6, [dstq + 2*dst_strideq]
+    psubw       xm7, [dstq + dst_stride3q ]
 
-    movq         xm4, [srcq + 0*src_strideq]
-    movq         xm5, [srcq + 1*src_strideq]
-    movq         xm6, [srcq + 2*src_strideq]
-    movq         xm7, [srcq + src_stride3q ]
-    movq         xm8, [dstq + 0*dst_strideq]
-    movq         xm9, [dstq + 1*dst_strideq]
-    movq        xm10, [dstq + 2*dst_strideq]
-    movq        xm11, [dstq + dst_stride3q ]
-
-    psubw       xm4, xm8
-    psubw       xm5, xm9
-    psubw       xm6, xm10
-    psubw       xm7, xm11
-
-    ; combine m0&m4, m1&m5, ...
+    ; swaps 2 halves of 64 bits
     REPX {pshufd x, x, q1032}, xm4, xm5, xm6, xm7
-    por     xm0, xm4
-    por     xm1, xm5
-    por     xm2, xm6
-    por     xm3, xm7
+
+    ; using vpblendd here saves an some instructions compared to
+    ; using and + or. an alternative is to movq every src and dst
+    ; memory address and use psubw on registers only, but this
+    ; approach seems better.
+    vpblendd xm0, xm0, xm4, 0b1100
+    vpblendd xm1, xm1, xm5, 0b1100
+    vpblendd xm2, xm2, xm6, 0b1100
+    vpblendd xm3, xm3, xm7, 0b1100
 
     ; jump to HADAMARD_4X4_PACKED in 8x4 satd, this saves us some binary size
     ; by deduplicating the shared code.
