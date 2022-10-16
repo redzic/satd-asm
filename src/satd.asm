@@ -512,6 +512,7 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
 
     ; sequence uses m0-m2
 
+    ; each of these instructions only uses 3 sets of registers
     BUTTERFLY 32, 32, 0
     INTERLEAVE 32, 32, 0
     BUTTERFLY 32, 32, 0
@@ -520,32 +521,27 @@ cglobal satd_8x4_16bpc, 5, 7, 8, src, src_stride, dst, dst_stride, buf, \
     INTERLEAVE 32, 32, 0
     BUTTERFLY 32, 32, 0
 
-    SWAP  6, 0
-    SWAP  7, 1
-    SWAP  8, 2
-    SWAP  9, 3
+    ; need to get data back into m0-3
+    vinserti128 ym3, ym6, xm8, 1
+    vinserti128 ym4, ym7, xm9, 1
 
-    vinserti128 ym0, ym0, xm2, 1
-    vinserti128 ym1, ym1, xm3, 1
-
-    BUTTERFLY 32, 32, 0
-    INTERLEAVE 32, 32, 0
-    BUTTERFLY 32, 32, 0
-    INTERLEAVE_PAIRS 32, 32, 0
-    BUTTERFLY 32, 32, 0
-    INTERLEAVE 32, 32, 0
-    BUTTERFLY 32, 32, 0
-
+    BUTTERFLY 32, 32, 1
+    INTERLEAVE 32, 32, 1
+    BUTTERFLY 32, 32, 1
+    INTERLEAVE_PAIRS 32, 32, 1
+    BUTTERFLY 32, 32, 1
+    INTERLEAVE 32, 32, 1
+    BUTTERFLY 32, 32, 1
 
     ; Sum up absolute value of transform coefficients
     pabsd       m0, m0
     pabsd       m1, m1
-    pabsd       m6, m6
-    pabsd       m7, m7
+    pabsd       m3, m3
+    pabsd       m4, m4
 
     paddd       m0, m1
-    paddd       m6, m7
-    paddd       m0, m6
+    paddd       m3, m4
+    paddd       m0, m3
 
     HSUM 32, 32, 0, 1, eax
 
